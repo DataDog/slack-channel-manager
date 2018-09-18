@@ -1,0 +1,17 @@
+{
+  "name": "private-channel-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private channel manager in the community Datadog slack channel",
+  "main": "bot.js",
+  "author": "Siva Mahadevan <svmhdvn@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "@slack/client": "^4.6.0",
+    "@slack/events-api": "^2.1.0",
+    "@slack/interactive-messages": "^1.0.1",
+    "dotenv": "^6.0.0",
+    "express": "^4.16.3",
+    "request": "^2.88.0"
+  }
+}
