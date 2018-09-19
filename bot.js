@@ -93,8 +93,13 @@ slackEvents.on('message', (event) => {
     }
 });
 
-slackInteractions.action('menu_button', (payload) => {
+slackInteractions.action('menu_button', (payload, respond) => {
+    let reply = payload.original_message;
+
     if ('request_private_channel' == payload.actions[0].name) {
+        delete reply.attachments[0].actions;
+        reply.attachments[0].text = "Requesting private channel...";
+
         slack.dialog.open({
             trigger_id: payload.trigger_id,
             dialog: {
@@ -131,24 +136,78 @@ slackInteractions.action('menu_button', (payload) => {
         }).catch((error) => {
             console.log('Errors occurred: ', error.data.response_metadata.messages);
         });
+    } else if ('list_private_channels' == payload.actions[0].name) {
+        delete reply.attachments;
+
+        slack.conversations.list({
+            types: 'private_channel'
+        }).then((res) => {
+            let attachments = [];
+            res.channels.forEach((channel) => {
+                attachments.push({
+                    title: channel.name,
+                    text: channel.topic.value,
+                    actions: [{
+                        name: "join_channel",
+                        text: "Join",
+                        type: "button",
+                        value: channel.id
+                    }]
+                });
+            });
+            respond({ 
+                text: "Here is a list of the currently active private channels:",
+                attachments
+            });
+        }).catch((error) => {
+            console.error('error received: ', error);
+        });
     }
 
-    let reply = payload.original_message;
-    delete reply.attachments[0].actions;
-    reply.attachments[0].text = "Requesting private channel...";
     return reply;
 });
 
 slackInteractions.action('channel_request_dialog', (payload, respond) => {
-    const username = payload.submission.invited_user;
+    const me = payload.user.id;
+    const invitee = payload.submission.invited_user;
     const organization = payload.submission.organization;
-    slack.conversations.create({
-        name: `${username}-${organization}`.toLowerCase().trim(),
-        is_private: true,
-        user_ids: username
+
+    console.log('me: ', me);
+    console.log('invitee: ', invitee);
+    console.log('organization: ', organization);
+
+    if (invitee == me) {
+        return {
+            errors: [{
+                name: "invited_user",
+                error: "You cannot request a new private channel with just yourself in it!"
+            }]
+        };
+    }
+
+    return slack.users.info({
+        user: invitee
     }).then((res) => {
-        console.log('response: ', res);
-        respond({ text: `Successfully created private channel with ${username} from ${organization}!` });
+        if (res.user.is_bot || res.user.is_app_user) {
+            return {
+                errors: [{
+                    name: "invited_user",
+                    error: "Invited user must be human."
+                }]
+            };
+        } else {
+            return slack.conversations.create({
+                name: `${invitee}-${organization}`.toLowerCase().trim(),
+                is_private: true,
+                user_ids: `${me},${invitee}`
+            })
+        }
+    }).then((res) => {
+        if (res.errors) {
+            return res;
+        }
+
+        respond({ text: `Successfully created private channel with ${invitee} from ${organization}!` });
     }).catch((error) => {
         console.error('error received: ', error);
     });
