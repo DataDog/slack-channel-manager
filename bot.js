@@ -16,6 +16,7 @@ const slackInteractions = createMessageAdapter(clientSigningSecret);
 const port = process.env.PORT || 8080;
 const app = express();
 const slack = new WebClient(process.env.SLACK_TOKEN);
+const channelFile = 'channels.json';
 
 app.use('/event', slackEvents.expressMiddleware());
 app.use('/action', slackInteractions.expressMiddleware());
@@ -92,13 +93,65 @@ slackEvents.on('message', (event) => {
     }
 });
 
-slackInteractions.action('menu_button', (payload, respond) => {
-    const message = { text: 'Thank you for clicking the menu button.' };
-    respond(message);
+slackInteractions.action('menu_button', (payload) => {
+    if ('request_private_channel' == payload.actions[0].name) {
+        slack.dialog.open({
+            trigger_id: payload.trigger_id,
+            dialog: {
+                callback_id: "channel_request_dialog",
+                title: "Request private channel",
+                submit_label: "Submit",
+                elements: [
+                    {
+                        type: "text",
+                        label: "Organization/Customer",
+                        name: "organization",
+                        optional: true
+                    },
+                    {
+                        type: "select",
+                        label: "Invite user",
+                        name: "invited_user",
+                        data_source: "users"
+                    },
+                    {
+                        type: "text",
+                        subtype: "number",
+                        label: "Days until expiry",
+                        name: "expire_days"
+                    },
+                    {
+                        type: "textarea",
+                        label: "Purpose of channel",
+                        name: "purpose",
+                        optional: true
+                    }
+                ]
+            }
+        }).catch((error) => {
+            console.log('Errors occurred: ', error.data.response_metadata.messages);
+        });
+    }
 
     let reply = payload.original_message;
     delete reply.attachments[0].actions;
+    reply.attachments[0].text = "Requesting private channel...";
     return reply;
+});
+
+slackInteractions.action('channel_request_dialog', (payload, respond) => {
+    const username = payload.submission.invited_user;
+    const organization = payload.submission.organization;
+    slack.conversations.create({
+        name: `${username}-${organization}`.toLowerCase().trim(),
+        is_private: true,
+        user_ids: username
+    }).then((res) => {
+        console.log('response: ', res);
+        respond({ text: `Successfully created private channel with ${username} from ${organization}!` });
+    }).catch((error) => {
+        console.error('error received: ', error);
+    });
 });
 
 // Handle errors (see `errorCodes` export)
