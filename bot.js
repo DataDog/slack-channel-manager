@@ -16,7 +16,6 @@ const slackInteractions = createMessageAdapter(clientSigningSecret);
 const port = process.env.PORT || 8080;
 const app = express();
 const slack = new WebClient(process.env.SLACK_TOKEN);
-const channelFile = "channels.json";
 
 const helpCommandRegex = new RegExp([
     "help", "option", "action", "command", "menu"

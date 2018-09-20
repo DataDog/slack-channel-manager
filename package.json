@@ -1,11 +1,12 @@
 {
   "name": "private-channel-bot",
   "version": "1.0.0",
-  "private": true,
-  "description": "Private channel manager in the community Datadog slack channel",
+  "description": "Private channel manager for public slack channels",
   "main": "bot.js",
   "author": "Siva Mahadevan <svmhdvn@gmail.com>",
-  "license": "ISC",
+  "homepage": "https://github.com/svmhdvn/private-channel-bot#readme",
+  "repository": "github:svmhdvn/private-channel-bot",
+  "license": "MIT",
   "dependencies": {
     "@slack/client": "^4.6.0",
     "@slack/events-api": "^2.1.0",
