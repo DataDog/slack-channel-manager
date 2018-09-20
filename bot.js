@@ -53,6 +53,9 @@ slackEvents.on('message', (event) => {
     if (event.bot_id && event.bot_id == botId) {
         return;
     }
+    if (event.message && event.message.bot_id && event.message.bot_id == botId) {
+        return;
+    }
 
     const message = event.text.trim().toLowerCase();
     if (message.indexOf('help') != -1) {
@@ -61,34 +64,30 @@ slackEvents.on('message', (event) => {
             text: "Welcome to the Datadog channel manager!",
             attachments: [
                 {
-                    "text": "Choose an option:",
-                    "fallback": "You are unable to choose an option",
-                    "callback_id": "menu_button",
-                    "color": "#3AA3E3",
-                    "attachment_type": "default",
-                    "actions": [
+                    text: "Choose an option:",
+                    fallback: "You are unable to choose an option",
+                    callback_id: "menu_button",
+                    color: "#3AA3E3",
+                    attachment_type: "default",
+                    actions: [
                         {
-                            "name": "request_private_channel",
-                            "text": "Request a private channel",
-                            "type": "button"
+                            name: "request_private_channel",
+                            text: "Request a private channel",
+                            type: "button"
                         },
                         {
-                            "name": "list_private_channels",
-                            "text": "List active private channels",
-                            "type": "button"
+                            name: "list_private_channels",
+                            text: "List active private channels",
+                            type: "button"
                         }
                     ]
                 }
             ]
-        }).then((res) => {
-            console.log('Message sent: ', res.ts);
         }).catch(console.error);
     } else {
         slack.chat.postMessage({
             channel: event.channel,
             text: 'Hello there',
-        }).then((res) => {
-            console.log('Message sent: ', res.ts);
         }).catch(console.error);
     }
 });
@@ -109,15 +108,23 @@ slackInteractions.action('menu_button', (payload, respond) => {
                 elements: [
                     {
                         type: "text",
-                        label: "Organization/Customer",
-                        name: "organization",
-                        optional: true
+                        label: "Channel name",
+                        name: "channel_name",
+                        min_length: 1,
+                        max_length: 21,
+                        hint: "May only contain lowercase letters, numbers, hyphens, and underscores."
                     },
                     {
                         type: "select",
                         label: "Invite user",
                         name: "invited_user",
                         data_source: "users"
+                    },
+                    {
+                        type: "text",
+                        label: "Organization/Customer",
+                        name: "organization",
+                        optional: true
                     },
                     {
                         type: "text",
@@ -129,7 +136,8 @@ slackInteractions.action('menu_button', (payload, respond) => {
                         type: "textarea",
                         label: "Purpose of channel",
                         name: "purpose",
-                        optional: true
+                        optional: true,
+                        max_length: 250
                     }
                 ]
             }
@@ -140,23 +148,52 @@ slackInteractions.action('menu_button', (payload, respond) => {
         delete reply.attachments;
 
         slack.conversations.list({
-            types: 'private_channel'
+            types: 'private_channel',
+            limit: 5,
+            cursor: payload.actions[0].value || ''
         }).then((res) => {
             let attachments = [];
             res.channels.forEach((channel) => {
+                let text = `_${channel.topic.value}_`;
+                if (channel.purpose && channel.purpose.value) {
+                    text += '\n' + channel.purpose.value;
+                }
+
                 attachments.push({
-                    title: channel.name,
-                    text: channel.topic.value,
-                    actions: [{
-                        name: "join_channel",
-                        text: "Join",
-                        type: "button",
-                        value: channel.id
-                    }]
+                    title: `#${channel.name}`,
+                    text,
+                    callback_id: 'join_channel_button',
+                    actions: [
+                        {
+                            name: "join_channel",
+                            text: "Join",
+                            type: "button",
+                            style: "primary",
+                            value: channel.id
+                        },
+                        {
+                            name: "archive_channel",
+                            text: "Archive",
+                            type: "button",
+                            value: channel.id
+                        }],
+                    ts: channel.ts,
+                    mrkdwn: true
                 });
             });
+
+            attachments.push({
+                text: "",
+                callback_id: 'menu_button',
+                actions: [{
+                    name: "list_private_channels",
+                    text: "See more channels...",
+                    type: "button",
+                    value: res.response_metadata.next_cursor
+                }]
+            });
             respond({ 
-                text: "Here is a list of the currently active private channels:",
+                text: "Here is a `list` of the currently active private channels:",
                 attachments
             });
         }).catch((error) => {
@@ -167,14 +204,24 @@ slackInteractions.action('menu_button', (payload, respond) => {
     return reply;
 });
 
+slackInteractions.action('join_channel_button', (payload, respond) => {
+    slack.conversations.invite({
+        channel: payload.actions[0].value,
+        users: payload.user.id
+    }).then((res) => {
+        respond({
+            text: "Successfully joined channel."
+        });
+    }).catch((error) => {
+        console.error('error received: ', error);
+    });
+});
+
 slackInteractions.action('channel_request_dialog', (payload, respond) => {
     const me = payload.user.id;
     const invitee = payload.submission.invited_user;
     const organization = payload.submission.organization;
-
-    console.log('me: ', me);
-    console.log('invitee: ', invitee);
-    console.log('organization: ', organization);
+    const channel_name = payload.submission.channel_name.toLowerCase().trim();
 
     if (invitee == me) {
         return {
@@ -183,8 +230,16 @@ slackInteractions.action('channel_request_dialog', (payload, respond) => {
                 error: "You cannot request a new private channel with just yourself in it!"
             }]
         };
+    } else if (!/^[a-z0-9_\-]+$/.test(channel_name)) {
+        return {
+            errors: [{
+                name: "channel_name",
+                error: "Invalid characters found."
+            }]
+        };
     }
 
+    let channel = '';
     return slack.users.info({
         user: invitee
     }).then((res) => {
@@ -197,7 +252,7 @@ slackInteractions.action('channel_request_dialog', (payload, respond) => {
             };
         } else {
             return slack.conversations.create({
-                name: `${invitee}-${organization}`.toLowerCase().trim(),
+                name: channel_name,
                 is_private: true,
                 user_ids: `${me},${invitee}`
             })
@@ -207,7 +262,25 @@ slackInteractions.action('channel_request_dialog', (payload, respond) => {
             return res;
         }
 
-        respond({ text: `Successfully created private channel with ${invitee} from ${organization}!` });
+        channel = res.channel.id;
+        return slack.conversations.setTopic({
+            channel,
+            topic: `Requested for <@${invitee}> from ${organization}`
+        });
+    }).then((res) => {
+        if (res.errors) {
+            return res;
+        }
+
+        return slack.conversations.setPurpose({
+            channel,
+            purpose: payload.submission.purpose
+        });
+    }).then((res) => {
+        if (res.errors) {
+            return res;
+        }
+        respond({ text: `Successfully created private channel for <@${invitee}> from ${organization}!` });
     }).catch((error) => {
         console.error('error received: ', error);
     });
