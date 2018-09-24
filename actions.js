@@ -137,7 +137,10 @@ module.exports = (slack, slackInteractions) => {
         let channel_name = payload.submission.channel_name.trim().toLowerCase();
         const me = payload.user.id;
         const { invitee, organization, expire_days, purpose } = payload.submission;
-        const topic = `Requested for <@${invitee}> from ${organization}`;
+        let topic = `Requested for <@${invitee}>`;
+        if (organization) {
+            topic += " from " + organization;
+        }
 
         if (invitee == me) {
             return {
