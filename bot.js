@@ -1,3 +1,11 @@
+// TODO: add search parameters to list_private_channels so that you can filter by organization name
+// TODO: notify channel one week in advance of being automatically expired, give them option to
+//       extend the expiry
+// TODO: add environment variables for hardcoded things in the code
+// TODO: add more UI options to make it easier to call the right actions
+// TODO: cleanup code and get ready for hosting on heroku (better error handling)
+// TODO: comply with https://github.com/DataDog/devops/wiki/Datadog-Open-Source-Policy#releasing-a-new-open-source-repository
+
 const fs = require("fs");
 const express = require("express");
 const request = require("request");
@@ -70,12 +78,42 @@ app.listen(port, () => {
             const oldNumChannels = channels.length;
 
             channels = channels.filter((channel) => {
-                if ((curDate - new Date(channel.created * 1000)) >= (oneDay * channel.expire_days)) {
+                const diff = curDate - new Date(channel.created * 1000);
+                if (diff >= (oneDay * channel.expire_days)) {
                     console.log(`#${channel.name} has expired, auto-archiving now.`);
                     slack.conversations.archive({
                         channel: channel.id
                     }).catch(console.error);
                     return false;
+                }
+                
+                if (diff >= (oneDay * (Math.max(channel.expire_days - 7, 0)))) {
+                    console.log(`#${channel.name} will expire within a week.`);
+                    slack.chat.postMessage({
+                        channel: channel.id,
+                        text: "Looks like this channel will _expire within a week_, " +
+                            "would you like to *extend it for one more week*?",
+                        attachments: [{
+                            text: "",
+                            fallback: "You are unable to choose an option.",
+                            callback_id: "expire_warning_button",
+                            color: "warning",
+                            attachment_type: "default",
+                            actions: [
+                                {
+                                    name: "yes",
+                                    text: "Yes",
+                                    type: "button",
+                                    style: "primary"
+                                },
+                                {
+                                    name: "no",
+                                    text: "No",
+                                    type: "button"
+                                }
+                            ]
+                        }]
+                    }).catch(console.error);
                 }
                 return true;
             });

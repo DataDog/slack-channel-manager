@@ -228,6 +228,31 @@ module.exports = (slack, slackInteractions) => {
         });
     });
 
+    slackInteractions.action("expire_warning_button", (payload, respond) => {
+        if ("yes" == payload.actions[0].name) {
+            lockFile.lockSync(lock);
+            if (!fs.existsSync(dbFile)) {
+                lockFile.unlockSync(lock);
+                respond({ errors: "Fatal error: channel doesn't exist in database." });
+                return;
+            }
+
+            let channels = JSON.parse(fs.readFileSync(dbFile));
+            const expire_days = channels[i].expire_days;
+            for (let i = 0; i < channels.length; ++i) {
+                if (channels[i].id == payload.channel) {
+                    channels[i].expire_days += 7;
+                    break;
+                }
+            }
+            fs.writeFileSync(dbFile, JSON.stringify(channels));
+            lockFile.unlockSync(lock);
+            respond({ text: ":white_checkmark: Successfully extended channel length by a week." });
+        } else {
+            respond({ text: `Ok, this channel will expire in ${expire_days} days.` });
+        }
+    });
+
     function requestPrivateChannel(payload) {
         let reply = payload.original_message || payload.message;
         const user = reply.user;

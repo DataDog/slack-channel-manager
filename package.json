@@ -1,11 +1,11 @@
 {
-  "name": "private-channel-bot",
+  "name": "slack-channel-manager",
   "version": "1.0.0",
   "description": "Private channel manager for public slack channels",
   "main": "bot.js",
   "author": "Siva Mahadevan <svmhdvn@gmail.com>",
-  "homepage": "https://github.com/svmhdvn/private-channel-bot#readme",
-  "repository": "github:svmhdvn/private-channel-bot",
+  "homepage": "https://github.com/datadog/slack-channel-manager#readme",
+  "repository": "github:datadog/slack-channel-manager",
   "license": "MIT",
   "dependencies": {
     "@slack/client": "^4.6.0",
