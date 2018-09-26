@@ -1,3 +1,13 @@
+/**
+ * Unless explicitly stated otherwise all files in this repository are licensed
+ * under the MIT License.
+ *
+ * This product includes software developed at Datadog
+ * (https://www.datadoghq.com/).
+ *
+ * Copyright 2018 Datadog, Inc.
+ */
+
 module.exports = (shared, slack, slackInteractions) => {
     slackInteractions.action("menu_button", (payload) => {
         if ("request_private_channel" == payload.actions[0].name) {

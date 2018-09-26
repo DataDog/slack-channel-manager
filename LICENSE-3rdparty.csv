@@ -1,0 +1,9 @@
+Component,Origin,License,Copyright
+@slack/client,https://www.npmjs.com/package/@slack/client,MIT,"Copyright (c) 2014-2017 Slack Technologies, Inc."
+@slack/events-api,https://www.npmjs.com/package/@slack/events-api,MIT,"Copyright (c) 2017 Slack Technologies, Inc."
+@slack/interactive-messages,https://www.npmjs.com/package/@slack/interactive-messages,MIT,"Copyright (c) 2017 Slack Technologies, Inc."
+cron,https://www.npmjs.com/package/cron,MIT,"Copyright © 2017 Nicholas Campbell <nicholas.j.campbell@gmail.com>"
+dotenv,https://www.npmjs.com/package/dotenv,BSD-2-Clause,"Copyright (c) 2015, Scott Motte"
+express,https://www.npmjs.com/package/express,MIT,"Copyright (c) 2009-2014 TJ Holowaychuk <tj@vision-media.ca>,Copyright (c) 2013-2014 Roman Shtylman <shtylman+expressjs@gmail.com>,Copyright (c) 2014-2015 Douglas Christopher Wilson <doug@somethingdoug.com>"
+lockfile,https://www.npmjs.com/package/lockfile,ISC,"Copyright (c) Isaac Z. Schlueter and Contributors"
+request,https://www.npmjs.com/package/request,Apache-2.0,"Copyright 2010-2012 Mikeal Rogers"

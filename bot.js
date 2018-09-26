@@ -1,9 +1,18 @@
+/**
+ * Unless explicitly stated otherwise all files in this repository are licensed
+ * under the MIT License.
+ *
+ * This product includes software developed at Datadog
+ * (https://www.datadoghq.com/).
+ *
+ * Copyright 2018 Datadog, Inc.
+ */
+
 // TODO: add environment variables for hardcoded things in the code
 // TODO: add more UI options to make it easier to call the right actions
 // TODO: cleanup code and get ready for hosting on heroku (better error handling)
 // TODO: comply with https://github.com/DataDog/devops/wiki/Datadog-Open-Source-Policy#releasing-a-new-open-source-repository
 
-const fs = require("fs");
 const express = require("express");
 const request = require("request");
 const CronJob = require("cron").CronJob;

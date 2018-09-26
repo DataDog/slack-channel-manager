@@ -1,8 +1,14 @@
-const fs = require("fs");
-const lockFile = require("lockfile");
+/**
+ * Unless explicitly stated otherwise all files in this repository are licensed
+ * under the MIT License.
+ *
+ * This product includes software developed at Datadog
+ * (https://www.datadoghq.com/).
+ *
+ * Copyright 2018 Datadog, Inc.
+ */
+
 const botId = process.env.SLACK_BOT_ID;
-const dbFile = "db.json";
-const lock = "db.lock";
 const helpCommandRegex = /(help|option|action|command|menu)/i;
 
 module.exports = (shared, slack, slackEvents) => {
@@ -66,22 +72,16 @@ module.exports = (shared, slack, slackEvents) => {
     });
 
     slackEvents.on("group_archive", (event) => {
-        lockFile.lockSync(lock);
-        if (!fs.existsSync(dbFile)) {
-            lockFile.unlockSync(lock);
-            return;
-        }
-
-        let channels = JSON.parse(fs.readFileSync(dbFile));
-        for (let i = 0; i < channels.length; ++i) {
-            if (channels[i].id == event.channel) {
-                channels.splice(i, 1);
-                break;
+        shared.processChannels((channels) => {
+            for (let i = 0; i < channels.length; ++i) {
+                if (channels[i].id == event.channel) {
+                    channels.splice(i, 1);
+                    break;
+                }
             }
-        }
 
-        fs.writeFileSync(dbFile, JSON.stringify(channels));
-        lockFile.unlockSync(lock);
+            return { channels, writeBack: true };
+        });
     });
 
     slackEvents.on("error", console.error);
