@@ -1,94 +1,16 @@
-const fs = require("fs");
-const lockFile = require("lockfile");
-const dbFile = "db.json";
-const lock = "db.lock";
-
-module.exports = (slack, slackInteractions) => {
-    slackInteractions.action("menu_button", (payload, respond) => {
+module.exports = (shared, slack, slackInteractions) => {
+    slackInteractions.action("menu_button", (payload) => {
         if ("request_private_channel" == payload.actions[0].name) {
-            return requestPrivateChannel(payload, respond);
+            return requestChannel(payload);
         } else if ("list_private_channels" == payload.actions[0].name) {
-            lockFile.lockSync(lock);
-            if (!fs.existsSync(dbFile)) {
-                lockFile.unlockSync(lock);
-                respond({ text: "There are currently no active private channels right now, " +
-                    "type `help` if you would like to request one." });
-                return;
-            }
-
-            const channels = JSON.parse(fs.readFileSync(dbFile));
-            const cursor = parseInt(payload.actions[0].value) || 0
-            let attachments = [];
-            for (let i = cursor; i < Math.min(cursor + 5, channels.length); ++i) {
-                const channel = channels[i];
-                let text = `_${channel.topic}_`;
-                if (channel.purpose) {
-                    text += "\n" + channel.purpose;
-                }
-
-                attachments.push({
-                    title: `#${channel.name}`,
-                    text,
-                    callback_id: "join_channel_button",
-                    actions: [
-                        {
-                            name: "join_channel",
-                            text: "Join",
-                            type: "button",
-                            style: "primary",
-                            value: channel.id
-                        },
-                        {
-                            name: "archive_channel",
-                            text: "Archive",
-                            type: "button",
-                            value: channel.id,
-                            confirm: {
-                                title: `Archive #${channel.name}`,
-                                text: `Are you sure you want to archive ${channel.name}?`,
-                                ok_text: "Yes",
-                                dismiss_text: "No"
-                            }
-                        }],
-                    footer: "Date created",
-                    ts: channel.created,
-                    mrkdwn: true
-                });
-            }
-
-            let actions = [];
-            if (cursor >= 5) {
-                actions.push({
-                    name: "list_private_channels",
-                    text: "Prev page",
-                    type: "button",
-                    value: cursor - 5
-                });
-            }
-            if (cursor + 5 < channels.length) {
-                actions.push({
-                    name: "list_private_channels",
-                    text: "Next page",
-                    type: "button",
-                    value: cursor + 5
-                });
-            }
-            if (channels.length > 5) {
-                attachments.push({
-                    text: "See more channels...",
-                    callback_id: "menu_button",
-                    actions
-                });
-            }
-            respond({
-                text: "Here is a `list` of the currently active private channels:",
-                attachments
+            const { cursor, searchTerms } = JSON.parse(payload.actions[0].value);
+            return shared.listChannels(cursor || 0, searchTerms || "").then((result) => {
+                return result.data;
             });
-            lockFile.unlockSync(lock);
         }
     });
 
-    slackInteractions.action("join_channel_button", (payload, respond) => {
+    slackInteractions.action("join_channel_button", (payload) => {
         const channel = payload.actions[0].value;
         let reply = payload.original_message;
 
@@ -101,13 +23,11 @@ module.exports = (slack, slackInteractions) => {
                     break;
                 }
             }
-            slack.conversations.invite({
+            return slack.conversations.invite({
                 channel,
                 users: payload.user.id
             }).then(() => {
-                respond(reply);
-            }).catch((error) => {
-                console.error("error received: ", error);
+                return reply;
             });
         } else if ("archive_channel" == payload.actions[0].name) {
             for (var i = 0; i < reply.attachments.length; ++i) {
@@ -119,19 +39,13 @@ module.exports = (slack, slackInteractions) => {
                 }
             }
 
-            slack.conversations.archive({
+            return slack.conversations.archive({
                 channel
             }).then(() => {
-                respond(reply);
-            }).catch((error) => {
-                console.error("error received: ", error);
+                return reply;
             });
         }
-
-        return reply;
     });
-
-    slackInteractions.action("request_channel_action", requestPrivateChannel);
 
     slackInteractions.action("channel_request_dialog", (payload, respond) => {
         let channel_name = payload.submission.channel_name.trim().toLowerCase();
@@ -142,27 +56,30 @@ module.exports = (slack, slackInteractions) => {
             topic += " from " + organization;
         }
 
+        let errors = [];
         if (invitee == me) {
-            return {
-                errors: [{
-                    name: "invitee",
-                    error: "You cannot request a new private channel with just yourself in it!"
-                }]
-            };
-        } else if (!/^[a-z0-9_-]+$/.test(channel_name)) {
-            return {
-                errors: [{
-                    name: "channel_name",
-                    error: "Invalid characters found."
-                }]
-            };
-        } else if (!/^[1-9]\d*$/.test(expire_days)) {
-            return {
-                errors: [{
-                    name: "expire_days",
-                    error: "Please enter a valid positive integer."
-                }]
-            };
+            errors.push({
+                name: "invitee",
+                error: "You cannot request a new private channel with just yourself in it!"
+            });
+        }
+
+        if (!/^[a-z0-9_-]+$/.test(channel_name)) {
+            errors.push({
+                name: "channel_name",
+                error: "Invalid characters found."
+            });
+        }
+
+        if (!/^[1-9]\d*$/.test(expire_days)) {
+            errors.push({
+                name: "expire_days",
+                error: "Please enter a valid positive integer."
+            });
+        }
+
+        if (errors.length > 0) {
+            return { errors };
         }
 
         let channel = "";
@@ -207,53 +124,61 @@ module.exports = (slack, slackInteractions) => {
                 return res;
             }
 
-            lockFile.lockSync(lock);
-            let channels = fs.existsSync(dbFile) ? JSON.parse(fs.readFileSync(dbFile)) : [];
-            channels.push({
-                id: channel,
-                name: channel_name,
-                created,
-                user: invitee,
-                organization: organization || "",
-                topic,
-                purpose,
-                expire_days: parseInt(expire_days)
+            return shared.processChannels((channels) => {
+                const newChannel = {
+                    id: channel,
+                    name: channel_name,
+                    created,
+                    user: invitee,
+                    organization: organization || "",
+                    topic,
+                    purpose,
+                    expire_days: parseInt(expire_days)
+                };
+                channels.push(newChannel);
+                return { channels, writeBack: true };
             });
-            fs.writeFileSync(dbFile, JSON.stringify(channels));
-            lockFile.unlockSync(lock);
+        }).then((result) => {
+            if (result.errors) {
+                return result;
+            }
 
             respond({ text: `Successfully created private channel for <@${invitee}> from ${organization}!` });
-        }).catch((error) => {
-            console.error("error received: ", error);
         });
     });
 
-    slackInteractions.action("expire_warning_button", (payload, respond) => {
+    slackInteractions.action("expire_warning_button", (payload) => {
         if ("yes" == payload.actions[0].name) {
-            lockFile.lockSync(lock);
-            if (!fs.existsSync(dbFile)) {
-                lockFile.unlockSync(lock);
-                respond({ errors: "Fatal error: channel doesn't exist in database." });
-                return;
-            }
-
-            let channels = JSON.parse(fs.readFileSync(dbFile));
-            const expire_days = channels[i].expire_days;
-            for (let i = 0; i < channels.length; ++i) {
-                if (channels[i].id == payload.channel) {
-                    channels[i].expire_days += 7;
-                    break;
+            return shared.processChannels((channels) => {
+                if (0 == channels.length) {
+                    return { errors: "Fatal error: channel doesn't exist in database." };
                 }
-            }
-            fs.writeFileSync(dbFile, JSON.stringify(channels));
-            lockFile.unlockSync(lock);
-            respond({ text: ":white_checkmark: Successfully extended channel length by a week." });
+
+                for (let i = 0; i < channels.length; ++i) {
+                    if (channels[i].id == payload.channel.id) {
+                        channels[i].expire_days += 7;
+                        break;
+                    }
+                }
+
+                return {
+                    channels,
+                    writeBack: true,
+                    data: {
+                        text: ":white_check_mark: Successfully extended channel length by a week."
+                    }
+                };
+            }).then((result) => {
+                return result.data;
+            });
         } else {
-            respond({ text: `Ok, this channel will expire in ${expire_days} days.` });
+            return { text: "Ok, this channel will expire within the week." };
         }
     });
 
-    function requestPrivateChannel(payload) {
+    slackInteractions.action("request_channel_action", requestChannel);
+
+    function requestChannel(payload) {
         let reply = payload.original_message || payload.message;
         const user = reply.user;
         if (reply.attachments) {
@@ -280,7 +205,7 @@ module.exports = (slack, slackInteractions) => {
                         label: "Invite user",
                         name: "invitee",
                         data_source: "users",
-                        value: user || null
+                        value: user || ""
                     },
                     {
                         type: "text",
@@ -304,9 +229,7 @@ module.exports = (slack, slackInteractions) => {
                     }
                 ]
             }
-        }).catch((error) => {
-            console.log("Error occurred: ", error);
-        });
+        }).catch(console.error);
 
         return reply;
     }
