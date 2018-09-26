@@ -1,5 +1,5 @@
-# private-channel-bot
-Slack Bot for private channel management in a public slack workspace.
+# slack-channel-manager
+Slack bot for private channel management in a public slack workspace.
 
 ### Setup instructions
 
