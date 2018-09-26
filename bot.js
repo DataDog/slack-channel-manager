@@ -8,8 +8,8 @@
  * Copyright 2018 Datadog, Inc.
  */
 
-// TODO: add environment variables for hardcoded things in the code
-// TODO: add more UI options to make it easier to call the right actions
+// TODO: add `extend` command to extend even after the reminder is over
+// TODO: stop reminding people in a channel after the expiry week has started
 // TODO: cleanup code and get ready for hosting on heroku (better error handling)
 // TODO: comply with https://github.com/DataDog/devops/wiki/Datadog-Open-Source-Policy#releasing-a-new-open-source-repository
 
@@ -39,6 +39,11 @@ require("./events.js")(shared, slack, slackEvents);
 require("./actions.js")(shared, slack, slackInteractions);
 
 const app = express();
+// app.use((req, res, next) => {
+//     console.log('req body: ', req.body);
+//     next();
+// });
+
 app.use("/event", slackEvents.expressMiddleware());
 app.use("/action", slackInteractions.expressMiddleware());
 

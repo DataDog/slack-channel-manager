@@ -7,6 +7,9 @@
   "homepage": "https://github.com/datadog/slack-channel-manager#readme",
   "repository": "github:datadog/slack-channel-manager",
   "license": "MIT",
+  "scripts": {
+    "start": "node bot.js"
+  },
   "dependencies": {
     "@slack/client": "^4.6.0",
     "@slack/events-api": "^2.1.0",

@@ -10,8 +10,8 @@
 
 const fs = require("fs");
 const lockFile = require("lockfile");
-const dbFile = "db.json";
-const lock = "db.lock";
+const dbFile = process.env.DB_FILE || "db.json";
+const lock = process.env.DB_LOCK || "db.lock";
 
 module.exports = (slack) => {
     return {
