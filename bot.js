@@ -13,8 +13,10 @@
 // TODO: cleanup code and get ready for hosting on heroku (better error handling)
 // TODO: comply with https://github.com/DataDog/devops/wiki/Datadog-Open-Source-Policy#releasing-a-new-open-source-repository
 
-const express = require("express");
+const https = require("https");
 const request = require("request");
+const express = require("express");
+const mongoose = require("mongoose");
 const CronJob = require("cron").CronJob;
 const { WebClient } = require("@slack/client");
 const { createEventAdapter } = require("@slack/events-api");
@@ -34,18 +36,24 @@ const slackInteractions = createMessageAdapter(clientSigningSecret, {
     lateResponseFallbackEnabled: true
 });
 
-const shared = require("./shared.js")(slack);
-require("./events.js")(shared, slack, slackEvents);
-require("./actions.js")(shared, slack, slackInteractions);
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true });
+const ChannelSchema = new mongoose.Schema({
+    _id: String,
+    name: String,
+    created: Number,
+    user: String,
+    organization: String,
+    topic: String,
+    purpose: String,
+    expire_days: Number
+});
+const Channel = mongoose.model("Channel", ChannelSchema);
+
+const shared = require("./shared.js")(Channel, slack);
+require("./events.js")(shared, Channel, slack, slackEvents);
+require("./actions.js")(shared, Channel, slack, slackInteractions);
 
 const app = express();
-// app.use((req, res, next) => {
-//     console.log('req body: ', req.body);
-//     next();
-// });
-
-app.use("/event", slackEvents.expressMiddleware());
-app.use("/action", slackInteractions.expressMiddleware());
 
 app.get("/oauth", (req, res) => {
     if (!req.query.code) {
@@ -71,45 +79,34 @@ app.get("/oauth", (req, res) => {
     }
 });
 
-if (process.env.HTTPS_CERT && process.env.HTTPS_KEY) {
-    const https = require("https");
-    const fs = require("fs");
+app.use("/event", slackEvents.expressMiddleware());
+app.use("/action", slackInteractions.expressMiddleware());
 
-    let httpsOptions = {
-        cert: fs.readFileSync(process.env.HTTPS_CERT),
-        key: fs.readFileSync(process.env.HTTPS_KEY),
-    };
-    if (process.env.HTTPS_PASSPHRASE) {
-        httpsOptions.passphrase = fs.readFileSync(process.env.HTTPS_PASSPHRASE);
-    }
+// catch all error handler
+app.use(function(err, req, res, next) {
+    console.error(err.stack);
+    next(err);
+});
 
-    console.log("HTTPS: slack-channel-manager listening for on port " + port);
-    https.createServer(httpsOptions, app).listen(port, serve);
-} else {
-    console.log("HTTP: slack-channel-manager listening for on port " + port);
-    app.listen(port, serve);
-}
-
-function serve() {
+app.listen(port, function () {
+    console.log("Server started, listening on port " + port);
     const expiryJob = new CronJob({
-        cronTime: '0 0 * * * *', // runs once every hour
+        // cronTime: '0 0 * * * *', // runs once every hour
+        cronTime: '0 0 0 * * *', // runs once every day
         onTick: () => {
             console.log("Channel expiry job firing now.");
-            shared.processChannels((channels) => {
+            Channel.find().exec()
+            .then((channels) => {
                 const curDate = new Date();
-                const oldNumChannels = channels.length;
 
-                channels = channels.filter((channel) => {
+                channels.forEach((channel) => {
                     const diff = curDate - new Date(channel.created * 1000);
                     if (diff >= (oneDay * channel.expire_days)) {
                         console.log(`#${channel.name} has expired, auto-archiving now.`);
                         slack.conversations.archive({
                             channel: channel.id
                         }).catch(console.error);
-                        return false;
-                    }
-
-                    if (diff >= (oneDay * (Math.max(channel.expire_days - 7, 0)))) {
+                    } else if (diff >= (oneDay * (Math.max(channel.expire_days - 7, 0)))) {
                         console.log(`#${channel.name} will expire within a week.`);
                         slack.chat.postMessage({
                             channel: channel.id,
@@ -137,17 +134,11 @@ function serve() {
                             }]
                         }).catch(console.error);
                     }
-                    return true;
                 });
-
-                return {
-                    channels,
-                    writeBack: (oldNumChannels > channels.length)
-                };
             });
         },
-        runOnInit: true
+        runOnInit: false
     });
 
     expiryJob.start();
-}
+});

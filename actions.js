@@ -8,15 +8,13 @@
  * Copyright 2018 Datadog, Inc.
  */
 
-module.exports = (shared, slack, slackInteractions) => {
+module.exports = (shared, Channel, slack, slackInteractions) => {
     slackInteractions.action("menu_button", (payload) => {
         if ("request_private_channel" == payload.actions[0].name) {
             return requestChannel(payload);
         } else if ("list_private_channels" == payload.actions[0].name) {
             const { cursor, searchTerms } = JSON.parse(payload.actions[0].value);
-            return shared.listChannels(cursor || 0, searchTerms || "").then((result) => {
-                return result.data;
-            });
+            return shared.listChannels(cursor || 0, searchTerms || "");
         }
     });
 
@@ -134,23 +132,19 @@ module.exports = (shared, slack, slackInteractions) => {
                 return res;
             }
 
-            return shared.processChannels((channels) => {
-                const newChannel = {
-                    id: channel,
-                    name: channel_name,
-                    created,
-                    user: invitee,
-                    organization: organization || "",
-                    topic,
-                    purpose,
-                    expire_days: parseInt(expire_days)
-                };
-                channels.push(newChannel);
-                return { channels, writeBack: true };
-            });
-        }).then((result) => {
-            if (result.errors) {
-                return result;
+            return Channel.insertMany([{
+                _id: channel,
+                name: channel_name,
+                created,
+                user: invitee,
+                organization: organization || "",
+                topic,
+                purpose,
+                expire_days: parseInt(expire_days)
+            }]);
+        }).then((res) => {
+            if (res.errors) {
+                return res;
             }
 
             respond({ text: `Successfully created private channel for <@${invitee}> from ${organization}!` });
@@ -159,29 +153,14 @@ module.exports = (shared, slack, slackInteractions) => {
 
     slackInteractions.action("expire_warning_button", (payload) => {
         if ("yes" == payload.actions[0].name) {
-            return shared.processChannels((channels) => {
-                if (0 == channels.length) {
-                    return { errors: "Fatal error: channel doesn't exist in database." };
-                }
-
-                for (let i = 0; i < channels.length; ++i) {
-                    if (channels[i].id == payload.channel.id) {
-                        channels[i].expire_days += 7;
-                        break;
-                    }
-                }
-
+            return Channel.findByIdAndUpdate(payload.channel.id, {
+                $inc: { expire_days: 7 }
+            }).exec().then(() => {
                 return {
-                    channels,
-                    writeBack: true,
-                    data: {
-                        text: ":white_check_mark: Successfully extended channel length by a week."
-                    }
+                    text: ":white_check_mark: Successfully extended channel length by a week."
                 };
-            }).then((result) => {
-                return result.data;
             });
-        } else {
+        } else if ("no" == payload.actions[0].name) {
             return { text: "Ok, this channel will expire within the week." };
         }
     });
