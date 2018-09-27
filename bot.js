@@ -71,9 +71,26 @@ app.get("/oauth", (req, res) => {
     }
 });
 
-app.listen(port, () => {
-    console.log("Example app listening on port " + port);
+if (process.env.HTTPS_CERT && process.env.HTTPS_KEY) {
+    const https = require("https");
+    const fs = require("fs");
 
+    let httpsOptions = {
+        cert: fs.readFileSync(process.env.HTTPS_CERT),
+        key: fs.readFileSync(process.env.HTTPS_KEY),
+    };
+    if (process.env.HTTPS_PASSPHRASE) {
+        httpsOptions.passphrase = fs.readFileSync(process.env.HTTPS_PASSPHRASE);
+    }
+
+    console.log("HTTPS: slack-channel-manager listening for on port " + port);
+    https.createServer(httpsOptions, app).listen(port, serve);
+} else {
+    console.log("HTTP: slack-channel-manager listening for on port " + port);
+    app.listen(port, serve);
+}
+
+function serve() {
     const expiryJob = new CronJob({
         cronTime: '0 0 * * * *', // runs once every hour
         onTick: () => {
@@ -133,4 +150,4 @@ app.listen(port, () => {
     });
 
     expiryJob.start();
-});
+}
