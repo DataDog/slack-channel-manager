@@ -148,7 +148,7 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
             }
 
             respond({ text: `Successfully created private channel for <@${invitee}> from ${organization}!` });
-        });
+        }).catch(console.error);
     });
 
     slackInteractions.action("expire_warning_button", (payload) => {

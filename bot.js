@@ -36,6 +36,7 @@ const slackInteractions = createMessageAdapter(clientSigningSecret, {
     lateResponseFallbackEnabled: true
 });
 
+mongoose.set('useFindAndModify', false);
 mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true });
 const ChannelSchema = new mongoose.Schema({
     _id: String,
