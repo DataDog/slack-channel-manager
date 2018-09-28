@@ -66,11 +66,20 @@ module.exports = (shared, Channel, slack, slackEvents) => {
         }
     });
 
-    slackEvents.on("group_archive", (event) => {
-        Channel.findByIdAndRemove(event.channel)
-            .then(() => console.log(`Channel <#${event.channel}> has been archived and removed from the DB.`))
-            .catch(console.error);
+    slackEvents.on("group_renamed", (event) => {
+        console.log("event: ", event);
+        return;
+        Channel.findByIdAndUpdate(event.channel, { name: "" });
     });
 
+    slackEvents.on("group_archive", groupArchive);
+    slackEvents.on("group_deleted", groupArchive);
+
     slackEvents.on("error", console.error);
+
+    function groupArchive(event) {
+        Channel.findByIdAndRemove(event.channel)
+            .then(() => console.log(`Channel <#${event.channel}> is now inactive and has been removed from the DB.`))
+            .catch(console.error);
+    }
 };
