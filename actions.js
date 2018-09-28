@@ -31,12 +31,9 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
                     break;
                 }
             }
-            return slack.conversations.invite({
-                channel,
-                users: payload.user.id
-            }).then(() => {
-                return reply;
-            });
+            return slack.user.groups.invite({ channel, user: payload.user.id })
+                .then(() => reply)
+                .catch(console.error);
         } else if ("archive_channel" == payload.actions[0].name) {
             for (var i = 0; i < reply.attachments.length; ++i) {
                 if (channel == reply.attachments[i].actions[0].value) {
@@ -47,11 +44,9 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
                 }
             }
 
-            return slack.conversations.archive({
-                channel
-            }).then(() => {
-                return reply;
-            });
+            return slack.user.groups.archive({ channel })
+                .then(() => reply)
+                .catch(console.error);
         }
     });
 
@@ -92,7 +87,7 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
 
         let channel = "";
         let created = 0;
-        return slack.users.info({
+        return slack.bot.users.info({
             user: invitee
         }).then((res) => {
             if (res.user.is_bot || res.user.is_app_user) {
@@ -102,35 +97,27 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
                         error: "Invited user must be human."
                     }]
                 };
-            } else {
-                return slack.conversations.create({
-                    name: channel_name,
-                    is_private: true,
-                    user_ids: `${me},${invitee}`
-                })
-            }
-        }).then((res) => {
-            if (res.errors) {
-                return res;
             }
 
-            channel = res.channel.id;
-            channel_name = res.channel.name;
-            created = res.channel.created;
-            return slack.conversations.setTopic({ channel, topic });
+            // TODO: move to conversations API after workspace app migration
+            return slack.user.groups.create({ name: channel_name });
         }).then((res) => {
-            if (res.errors) {
-                return res;
-            }
+            if (res.errors) return res;
 
-            return slack.conversations.setPurpose({
-                channel,
-                purpose: payload.submission.purpose
-            });
+            channel = res.group.id;
+            channel_name = res.group.name;
+            created = res.group.created;
+
+            return Promise.all([
+                slack.user.groups.invite({
+                    channel,
+                    user: invitee
+                }),
+                slack.user.groups.setTopic({ channel, topic }),
+                slack.user.groups.setPurpose({ channel, purpose })
+            ]);
         }).then((res) => {
-            if (res.errors) {
-                return res;
-            }
+            if (res.errors) return res;
 
             return Channel.insertMany([{
                 _id: channel,
@@ -143,25 +130,20 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
                 expire_days: parseInt(expire_days)
             }]);
         }).then((res) => {
-            if (res.errors) {
-                return res;
-            }
+            if (res.errors) return res;
 
-            respond({ text: `Successfully created private channel for <@${invitee}> from ${organization}!` });
+            respond({ text: `Successfully created private channel #${channel_name} for <@${invitee}> from ${organization}!` });
         }).catch(console.error);
     });
 
     slackInteractions.action("expire_warning_button", (payload) => {
-        if ("yes" == payload.actions[0].name) {
-            return Channel.findByIdAndUpdate(payload.channel.id, {
-                $inc: { expire_days: 7 }
-            }).exec().then(() => {
-                return {
-                    text: ":white_check_mark: Successfully extended channel length by a week."
-                };
-            });
-        } else if ("no" == payload.actions[0].name) {
-            return { text: "Ok, this channel will expire within the week." };
+        if ("extend" == payload.actions[0].name) {
+            return Channel.findByIdAndUpdate(payload.channel.id, { reminded: false, $inc: { expire_days: 7 } })
+                .exec()
+                .then(() => { text: ":white_check_mark: Successfully extended channel length by a week." })
+                .catch(console.error);
+        } else if ("ignore" == payload.actions[0].name) {
+            return { text: "Ok, this channel will expire within the week. You can ignore this." };
         }
     });
 
@@ -174,7 +156,7 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
             delete reply.attachments;
             reply.text = ":building_construction: Requesting private channel...";
         }
-        slack.dialog.open({
+        slack.bot.dialog.open({
             trigger_id: payload.trigger_id,
             dialog: {
                 callback_id: "channel_request_dialog",

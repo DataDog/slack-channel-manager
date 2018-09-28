@@ -22,7 +22,7 @@ module.exports = (shared, Channel, slack, slackEvents) => {
 
         const message = event.text.trim().toLowerCase();
         if (helpCommandRegex.test(message)) {
-            return slack.chat.postMessage({
+            return slack.bot.chat.postMessage({
                 channel: event.channel,
                 text: "Here are your options. Type:\n" +
                 "- :information_source: | `help`: Print this help message\n" +
@@ -56,10 +56,10 @@ module.exports = (shared, Channel, slack, slackEvents) => {
             const searchTerms = message.replace("list", "").trim().replace(/ /g, "|");
             return shared.listChannels(0, searchTerms).then((reply) => {
                 reply.channel = event.channel;
-                return slack.chat.postMessage(reply);
-            });
+                return slack.bot.chat.postMessage(reply);
+            }).catch(console.error);
         } else {
-            return slack.chat.postMessage({
+            return slack.bot.chat.postMessage({
                 channel: event.channel,
                 text: "Hello there, I don't recognize your command. Try typing `help` for more options.",
             }).catch(console.error);
@@ -68,7 +68,8 @@ module.exports = (shared, Channel, slack, slackEvents) => {
 
     slackEvents.on("group_archive", (event) => {
         Channel.findByIdAndRemove(event.channel)
-            .then(() => console.log(`Channel <#${event.channel}> has been archived and removed from the DB.`));
+            .then(() => console.log(`Channel <#${event.channel}> has been archived and removed from the DB.`))
+            .catch(console.error);
     });
 
     slackEvents.on("error", console.error);

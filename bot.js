@@ -8,9 +8,9 @@
  * Copyright 2018 Datadog, Inc.
  */
 
+// TODO: migrate to new workspace API once Slack finishes it
 // TODO: add `extend` command to extend even after the reminder is over
-// TODO: stop reminding people in a channel after the expiry week has started
-// TODO: cleanup code and get ready for hosting on heroku (better error handling)
+// TODO: add proper logging and error handling (winston)
 // TODO: comply with https://github.com/DataDog/devops/wiki/Datadog-Open-Source-Policy#releasing-a-new-open-source-repository
 
 const https = require("https");
@@ -30,23 +30,28 @@ const port = process.env.PORT || 8080;
 
 const oneDay = 1000*60*60*24; // in milliseconds
 
-const slack = new WebClient(process.env.SLACK_TOKEN);
+const slack = {
+    user: new WebClient(process.env.SLACK_USER_TOKEN),
+    bot: new WebClient(process.env.SLACK_BOT_TOKEN)
+};
 const slackEvents = createEventAdapter(clientSigningSecret);
 const slackInteractions = createMessageAdapter(clientSigningSecret, {
     lateResponseFallbackEnabled: true
 });
 
+// TODO: remove this once mongoose fixes this deprecation
 mongoose.set('useFindAndModify', false);
 mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true });
 const ChannelSchema = new mongoose.Schema({
-    _id: String,
-    name: String,
-    created: Number,
-    user: String,
+    _id: { type: String, required: true },
+    name: { type: String, required: true },
+    created: { type: Number, required: true },
+    user: { type: String, required: true },
     organization: String,
     topic: String,
     purpose: String,
-    expire_days: Number
+    expire_days: { type: Number, default: 28 },
+    reminded: { type: Boolean, default: false }
 });
 const Channel = mongoose.model("Channel", ChannelSchema);
 
@@ -104,12 +109,10 @@ app.listen(port, function () {
                     const diff = curDate - new Date(channel.created * 1000);
                     if (diff >= (oneDay * channel.expire_days)) {
                         console.log(`#${channel.name} has expired, auto-archiving now.`);
-                        slack.conversations.archive({
-                            channel: channel.id
-                        }).catch(console.error);
-                    } else if (diff >= (oneDay * (Math.max(channel.expire_days - 7, 0)))) {
-                        console.log(`#${channel.name} will expire within a week.`);
-                        slack.chat.postMessage({
+                        slack.user.groups.archive({ channel: channel.id }).catch(console.error);
+                    } else if (!channel.reminded && diff >= (oneDay * Math.max(channel.expire_days - 7, 0))) {
+                        console.log(`#${channel.name} will expire within a week, reminding users.`);
+                        slack.bot.chat.postMessage({
                             channel: channel.id,
                             text: "Looks like this channel will _expire within a week_, " +
                             "would you like to *extend it for one more week*?",
@@ -121,22 +124,25 @@ app.listen(port, function () {
                                 attachment_type: "default",
                                 actions: [
                                     {
-                                        name: "yes",
-                                        text: "Yes",
+                                        name: "extend",
+                                        text: "Extend",
                                         type: "button",
                                         style: "primary"
                                     },
                                     {
-                                        name: "no",
-                                        text: "No",
+                                        name: "ignore",
+                                        text: "Ignore",
                                         type: "button"
                                     }
                                 ]
                             }]
+                        }).then(() => {
+                            channel.reminded = true;
+                            return channel.save();
                         }).catch(console.error);
                     }
                 });
-            });
+            }).catch(console.error);
         },
         runOnInit: false
     });
