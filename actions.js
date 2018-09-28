@@ -109,7 +109,7 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
             created = res.group.created;
 
             return Promise.all([
-                slack.user.groups.invite({ channel, user: invitee }),
+                slack.user.conversations.invite({ channel, users: `${invitee},${me}` }),
                 slack.user.groups.setTopic({ channel, topic }),
                 slack.user.groups.setPurpose({ channel, purpose }),
                 slack.user.groups.leave({ channel })
