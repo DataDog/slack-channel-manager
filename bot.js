@@ -10,13 +10,13 @@
 
 // TODO: migrate to new workspace API once Slack finishes it
 // TODO: add `extend` command to extend even after the reminder is over
-// TODO: add proper logging and error handling (winston)
 // TODO: comply with https://github.com/DataDog/devops/wiki/Datadog-Open-Source-Policy#releasing-a-new-open-source-repository
 
 const https = require("https");
 const request = require("request");
 const express = require("express");
 const mongoose = require("mongoose");
+const logger = require("heroku-logger");
 const CronJob = require("cron").CronJob;
 const { WebClient } = require("@slack/client");
 const { createEventAdapter } = require("@slack/events-api");
@@ -56,8 +56,8 @@ const ChannelSchema = new mongoose.Schema({
 const Channel = mongoose.model("Channel", ChannelSchema);
 
 const shared = require("./shared.js")(Channel, slack);
-require("./events.js")(shared, Channel, slack, slackEvents);
-require("./actions.js")(shared, Channel, slack, slackInteractions);
+require("./events.js")(shared, logger, Channel, slack, slackEvents);
+require("./actions.js")(shared, logger, Channel, slack, slackInteractions);
 
 const app = express();
 
@@ -77,7 +77,7 @@ app.get("/oauth", (req, res) => {
             }
         }, (error, response, body) => {
             if (error) {
-                console.log(error);
+                logger.info(error);
             } else {
                 res.json(body);
             }
@@ -89,60 +89,59 @@ app.use("/event", slackEvents.expressMiddleware());
 app.use("/action", slackInteractions.expressMiddleware());
 
 // catch all error handler
-app.use(function(err, req, res, next) {
-    console.error(err.stack);
+app.use((err, req, res, next) => {
+    logger.error(err);
     next(err);
 });
 
-app.listen(port, function () {
-    console.log("Server started, listening on port " + port);
+app.listen(port, () => {
+    logger.info("Slack Channel Manager server online", { port });
     const expiryJob = new CronJob({
         // cronTime: '0 0 * * * *', // runs once every hour
         cronTime: '0 0 0 * * *', // runs once every day
-        onTick: () => {
-            console.log("Channel expiry job firing now.");
-            Channel.find().exec()
-            .then((channels) => {
-                const curDate = new Date();
+        onTick: async () => {
+            logger.info("Channel expiry job firing now");
+            const channels = await Channel.find().exec();
 
-                channels.forEach((channel) => {
-                    const diff = curDate - new Date(channel.created * 1000);
-                    if (diff >= (oneDay * channel.expire_days)) {
-                        console.log(`#${channel.name} has expired, auto-archiving now.`);
-                        slack.user.groups.archive({ channel: channel.id }).catch(console.error);
-                    } else if (!channel.reminded && diff >= (oneDay * Math.max(channel.expire_days - 7, 0))) {
-                        console.log(`#${channel.name} will expire within a week, reminding users.`);
-                        slack.bot.chat.postMessage({
-                            channel: channel.id,
-                            text: "Looks like this channel will _expire within a week_, " +
-                            "would you like to *extend it for one more week*?",
-                            attachments: [{
-                                text: "",
-                                fallback: "You are unable to choose an option.",
-                                callback_id: "expire_warning_button",
-                                color: "warning",
-                                attachment_type: "default",
-                                actions: [
-                                    {
-                                        name: "extend",
-                                        text: "Extend",
-                                        type: "button",
-                                        style: "primary"
-                                    },
-                                    {
-                                        name: "ignore",
-                                        text: "Ignore",
-                                        type: "button"
-                                    }
-                                ]
-                            }]
-                        }).then(() => {
-                            channel.reminded = true;
-                            return channel.save();
-                        }).catch(console.error);
-                    }
-                });
-            }).catch(console.error);
+            const curDate = new Date();
+            channels.forEach((channel) => {
+                const diff = curDate - new Date(channel.created * 1000);
+                if (diff >= (oneDay * channel.expire_days)) {
+                    logger.info(`#${channel.name} has expired, auto-archiving now.`, { channel: channel.id });
+                    slack.user.groups.archive({ channel: channel.id }).catch(logger.error);
+                } else if (!channel.reminded && diff >= (oneDay * Math.max(channel.expire_days - 7, 0))) {
+                    logger.info(`#${channel.name} will expire within a week`, { channel: channel.id });
+                    // TODO try catch
+                    slack.bot.chat.postMessage({
+                        channel: channel.id,
+                        text: "Looks like this channel will _expire within a week_, " +
+                        "would you like to *extend it for one more week*?",
+                        attachments: [{
+                            text: "",
+                            fallback: "You are unable to choose an option.",
+                            callback_id: "expire_warning_button",
+                            color: "warning",
+                            attachment_type: "default",
+                            actions: [
+                                {
+                                    name: "extend",
+                                    text: "Extend",
+                                    type: "button",
+                                    style: "primary"
+                                },
+                                {
+                                    name: "ignore",
+                                    text: "Ignore",
+                                    type: "button"
+                                }
+                            ]
+                        }]
+                    });
+                    channel.reminded = true;
+                }
+            });
+
+            return channels.save();
         },
         runOnInit: false
     });

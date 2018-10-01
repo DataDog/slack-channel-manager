@@ -8,8 +8,15 @@
  * Copyright 2018 Datadog, Inc.
  */
 
-module.exports = (shared, Channel, slack, slackInteractions) => {
-    slackInteractions.action("menu_button", (payload) => {
+module.exports = (shared, logger, Channel, slack, slackInteractions) => {
+    slackInteractions.action("menu_button", async (payload) => {
+        logger.info("Button press", {
+            user_id: payload.user.id,
+            type: "button",
+            callback_id: "menu_button",
+            action: payload.actions[0]
+        });
+
         if ("request_private_channel" == payload.actions[0].name) {
             return requestChannel(payload);
         } else if ("list_private_channels" == payload.actions[0].name) {
@@ -18,39 +25,73 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
         }
     });
 
-    slackInteractions.action("join_channel_button", (payload) => {
+    slackInteractions.action("join_channel_button", async (payload) => {
+        logger.info("Button press", {
+            user_id: payload.user.id,
+            type: "button",
+            callback_id: "join_channel_button",
+            action: payload.actions[0]
+        });
+
         const channel = payload.actions[0].value;
         let reply = payload.original_message;
 
         if ("join_channel" == payload.actions[0].name) {
-            for (var i = 0; i < reply.attachments.length; ++i) {
+            try {
+                await slack.user.groups.invite({ channel, user: payload.user.id });
+            } catch (err) {
+                if (err.data) {
+                    if ("channel_not_found" == err.data.error || "is_archived" == err.data.error) {
+                        return { text: "Oops, looks like this channel is already inactive. " +
+                            "Please refresh the channel list." };
+                    }
+                } else {
+                    logger.error(err);
+                    return { text: "Fatal: unknown platform error" };
+                }
+            }
+
+            for (let i = 0; i < reply.attachments.length; ++i) {
                 if (channel == reply.attachments[i].actions[0].value) {
                     reply.attachments[i].actions.splice(0, 1);
                     reply.attachments[i].color = "good";
                     reply.attachments[i].text += "\n:white_check_mark: You have been invited to this channel."
-                    break;
+                    return reply;
                 }
             }
-            return slack.user.groups.invite({ channel, user: payload.user.id })
-                .then(() => reply)
-                .catch(console.error);
         } else if ("archive_channel" == payload.actions[0].name) {
-            for (var i = 0; i < reply.attachments.length; ++i) {
+            try {
+                await slack.user.groups.archive({ channel });
+            } catch (err) {
+                if (err.data) {
+                    if ("channel_not_found" == err.data.error || "already_archived" == err.data.error) {
+                        return { text: "Oops, looks like this channel is already inactive. " +
+                            "Please refresh the channel list." };
+                    }
+                } else {
+                    logger.error(err);
+                    return { text: "Fatal: unknown platform error" };
+                }
+            }
+            for (let i = 0; i < reply.attachments.length; ++i) {
                 if (channel == reply.attachments[i].actions[0].value) {
                     delete reply.attachments[i].actions;
                     reply.attachments[i].color = "warning";
                     reply.attachments[i].text += "\n:file_folder: This channel is now archived.";
-                    break;
+                    return reply;
                 }
             }
-
-            return slack.user.groups.archive({ channel })
-                .then(() => reply)
-                .catch(console.error);
         }
     });
 
-    slackInteractions.action("channel_request_dialog", (payload, respond) => {
+    slackInteractions.action("channel_request_dialog", async (payload, respond) => {
+        logger.info("Dialog submission", {
+            user_id: payload.user.id,
+            type: "dialog_submission",
+            callback_id: "channel_request_dialog",
+            submission: payload.submission
+        });
+
         let channel_name = payload.submission.channel_name.trim().toLowerCase();
         const me = payload.user.id;
         const { invitee, organization, expire_days, purpose } = payload.submission;
@@ -67,7 +108,7 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
             });
         }
 
-        if (!/^[a-z0-9_-]+$/.test(channel_name)) {
+        if (!/^[a-z0-9_-]{1,21}$/.test(channel_name)) {
             errors.push({
                 name: "channel_name",
                 error: "Invalid characters found."
@@ -85,39 +126,55 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
             return { errors };
         }
 
-        let channel = "";
-        let created = 0;
-        return slack.bot.users.info({
-            user: invitee
-        }).then((res) => {
-            if (res.user.is_bot || res.user.is_app_user) {
-                return {
-                    errors: [{
-                        name: "invitee",
-                        error: "Invited user must be human."
-                    }]
-                };
+        const res = await slack.bot.users.info({ user: invitee });
+        if (res.user.is_bot || res.user.is_app_user) {
+            return {
+                errors: [{
+                    name: "invitee",
+                    error: "Invited user must be human."
+                }]
+            };
+        }
+
+        try {
+            // TODO move to conversations API after workspace app migration
+            res = await slack.user.groups.create({ name: channel_name });
+        } catch (err) {
+            if (err.data) {
+                if ("name_taken" == err.data.error) {
+                    return {
+                        errors: [{
+                            name: "channel_name",
+                            error: "This channel name is already taken."
+                        }]
+                    };
+                } else if ("restricted_action" == err.data.error) {
+                    return {
+                        errors: [{
+                            name: "channel_name",
+                            error: "You are not allowed to request private channels in this Slack workspace," +
+                            "please contact the administrators."
+                        }]
+                    };
+                }
+            } else {
+                return { errors: [{ error: "Fatal: unknown platform error" }] };
             }
+        }
 
-            // TODO: move to conversations API after workspace app migration
-            return slack.user.groups.create({ name: channel_name });
-        }).then((res) => {
-            if (res.errors) return res;
+        const channel = res.group.id;
+        const created = res.group.created;
+        channel_name = res.group.name;
 
-            channel = res.group.id;
-            channel_name = res.group.name;
-            created = res.group.created;
+        res = await Promise.all([
+            slack.user.conversations.invite({ channel, users: `${invitee},${me}` }),
+            slack.user.groups.setTopic({ channel, topic }),
+            slack.user.groups.setPurpose({ channel, purpose }),
+        ]);
 
-            return Promise.all([
-                slack.user.conversations.invite({ channel, users: `${invitee},${me}` }),
-                slack.user.groups.setTopic({ channel, topic }),
-                slack.user.groups.setPurpose({ channel, purpose }),
-                slack.user.groups.leave({ channel })
-            ]);
-        }).then((res) => {
-            if (res.errors) return res;
-
-            return Channel.insertMany([{
+        res = await Promise.all([
+            slack.user.groups.leave({ channel }),
+            Channel.insertMany([{
                 _id: channel,
                 name: channel_name,
                 created,
@@ -126,28 +183,41 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
                 topic,
                 purpose,
                 expire_days: parseInt(expire_days)
-            }]);
-        }).then((res) => {
-            if (res.errors) return res;
+            }])
+        ]);
 
-            respond({ text: `Successfully created private channel #${channel_name} for <@${invitee}> from ${organization}!` });
-        }).catch(console.error);
+        respond({ text: `Successfully created private channel #${channel_name} for <@${invitee}> from ${organization}!` });
     });
 
-    slackInteractions.action("expire_warning_button", (payload) => {
+    slackInteractions.action("expire_warning_button", async (payload) => {
+        logger.info("Button press", {
+            user_id: payload.user.id,
+            type: "button",
+            callback_id: "expire_warning_button",
+            action: payload.actions[0]
+        });
+
         if ("extend" == payload.actions[0].name) {
             return Channel.findByIdAndUpdate(payload.channel.id, { reminded: false, $inc: { expire_days: 7 } })
                 .exec()
                 .then(() => { text: ":white_check_mark: Successfully extended channel length by a week." })
-                .catch(console.error);
+                .catch(logger.error);
         } else if ("ignore" == payload.actions[0].name) {
             return { text: "Ok, this channel will expire within the week. You can ignore this." };
         }
     });
 
-    slackInteractions.action("request_channel_action", requestChannel);
+    slackInteractions.action("request_channel_action", async (payload) => {
+        logger.info("Message action", {
+            user_id: payload.user.id,
+            type: "message_action",
+            callback_id: "request_channel_action",
+            message: payload.message
+        });
+        return requestChannel(payload);
+    });
 
-    function requestChannel(payload) {
+    async function requestChannel(payload) {
         let reply = payload.original_message || payload.message;
         const user = reply.user;
         if (reply.attachments) {
@@ -198,7 +268,7 @@ module.exports = (shared, Channel, slack, slackInteractions) => {
                     }
                 ]
             }
-        }).catch(console.error);
+        });
 
         return reply;
     }
