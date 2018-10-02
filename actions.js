@@ -126,7 +126,7 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
             return { errors };
         }
 
-        const res = await slack.bot.users.info({ user: invitee });
+        let res = await slack.bot.users.info({ user: invitee });
         if (res.user.is_bot || res.user.is_app_user) {
             return {
                 errors: [{
@@ -166,14 +166,10 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         const created = res.group.created;
         channel_name = res.group.name;
 
-        res = await Promise.all([
+        await Promise.all([
             slack.user.conversations.invite({ channel, users: `${invitee},${me}` }),
             slack.user.groups.setTopic({ channel, topic }),
             slack.user.groups.setPurpose({ channel, purpose }),
-        ]);
-
-        res = await Promise.all([
-            slack.user.groups.leave({ channel }),
             Channel.insertMany([{
                 _id: channel,
                 name: channel_name,
@@ -198,10 +194,13 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         });
 
         if ("extend" == payload.actions[0].name) {
-            return Channel.findByIdAndUpdate(payload.channel.id, { reminded: false, $inc: { expire_days: 7 } })
-                .exec()
-                .then(() => { text: ":white_check_mark: Successfully extended channel length by a week." })
-                .catch(logger.error);
+            try {
+                await Channel.findByIdAndUpdate(payload.channel.id, { reminded: false, $inc: { expire_days: 7 } });
+            } catch (err) {
+                logger.error(err);
+            }
+
+            return { text: ":white_check_mark: Successfully extended channel length by a week." };
         } else if ("ignore" == payload.actions[0].name) {
             return { text: "Ok, this channel will expire within the week. You can ignore this." };
         }

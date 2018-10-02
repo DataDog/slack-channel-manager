@@ -11,14 +11,14 @@
     "start": "node bot.js"
   },
   "dependencies": {
-    "@slack/client": "^4.6.0",
-    "@slack/events-api": "^2.1.0",
-    "@slack/interactive-messages": "^1.0.1",
+    "@slack/client": "^4.7.0",
+    "@slack/events-api": "^2.1.1",
+    "@slack/interactive-messages": "^1.0.2",
     "cron": "^1.4.1",
     "dotenv": "^6.0.0",
     "express": "^4.16.3",
     "heroku-logger": "^0.3.1",
-    "mongoose": "^5.2.17",
+    "mongoose": "^5.3.1",
     "request": "^2.88.0"
   }
 }

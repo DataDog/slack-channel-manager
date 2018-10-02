@@ -46,7 +46,6 @@ const ChannelSchema = new mongoose.Schema({
     _id: { type: String, required: true },
     name: { type: String, required: true },
     created: { type: Number, required: true },
-    user: { type: String, required: true },
     organization: String,
     topic: String,
     purpose: String,
@@ -65,7 +64,7 @@ app.get("/oauth", (req, res) => {
     if (!req.query.code) {
         res.status(500);
         res.send({"Error": "Looks like we are not getting code."});
-        console.log("Looks like we are not getting code.");
+        logger.error("Invalid OAuth request");
     } else {
         request({
             url: "https://slack.com/api/oauth.access",
@@ -111,8 +110,7 @@ app.listen(port, () => {
                     slack.user.groups.archive({ channel: channel.id }).catch(logger.error);
                 } else if (!channel.reminded && diff >= (oneDay * Math.max(channel.expire_days - 7, 0))) {
                     logger.info(`#${channel.name} will expire within a week`, { channel: channel.id });
-                    // TODO try catch
-                    slack.bot.chat.postMessage({
+                    slack.user.chat.postMessage({
                         channel: channel.id,
                         text: "Looks like this channel will _expire within a week_, " +
                         "would you like to *extend it for one more week*?",
@@ -136,12 +134,20 @@ app.listen(port, () => {
                                 }
                             ]
                         }]
+                    }).catch((err) => {
+                        if (err.data) {
+                            if ("channel_not_found" == err.data.error ||
+                                "is_archived" == err.data.error) {
+                                logger.error("Channel not found");
+                            }
+                        } else {
+                            logger.error("Fatal: unknown platform error");
+                        }
                     });
                     channel.reminded = true;
+                    channel.save();
                 }
             });
-
-            return channels.save();
         },
         runOnInit: false
     });
