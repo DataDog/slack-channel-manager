@@ -16,6 +16,7 @@ const https = require("https");
 const request = require("request");
 const express = require("express");
 const mongoose = require("mongoose");
+const mongoosePaginate = require("mongoose-paginate");
 const logger = require("heroku-logger");
 const CronJob = require("cron").CronJob;
 const { WebClient } = require("@slack/client");
@@ -52,6 +53,7 @@ const ChannelSchema = new mongoose.Schema({
     expire_days: { type: Number, default: 28 },
     reminded: { type: Boolean, default: false }
 });
+ChannelSchema.plugin(mongoosePaginate);
 const Channel = mongoose.model("Channel", ChannelSchema);
 
 const shared = require("./shared.js")(Channel, slack);

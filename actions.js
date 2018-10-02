@@ -18,16 +18,14 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         });
 
         if ("request_private_channel" == payload.actions[0].name) {
-            let reply = payload.original_message || payload.message;
-            const user = reply.user;
-            if (reply.attachments) {
-                delete reply.attachments;
-                reply.text = ":building_construction: Requesting private channel...";
-            }
-            return shared.requestChannelDialog(payload);
+            let reply = payload.original_message;
+            delete reply.attachments;
+            reply.text = ":building_construction: Requesting private channel...";
+            shared.requestChannelDialog(payload.trigger_id, {});
+            return reply;
         } else if ("list_private_channels" == payload.actions[0].name) {
-            const { cursor, searchTerms } = JSON.parse(payload.actions[0].value);
-            return shared.listChannels(cursor || 0, searchTerms || "");
+            const { offset, searchTerms } = JSON.parse(payload.actions[0].value);
+            return shared.listChannels(offset || 0, searchTerms || "");
         }
     });
 

@@ -10,7 +10,6 @@
 
 const helpCommandRegex = /help|option|action|command|menu/i;
 const requestCommandRegex = /request|create|private/i;
-const authChannel = process.env.AUTH_CHANNEL;
 
 module.exports = (shared, logger, Channel, slack, slackEvents) => {
     slackEvents.on("message", async (event) => {
@@ -64,7 +63,7 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
                             text: "List active private channels",
                             type: "button",
                             value: JSON.stringify({
-                                cursor: 0,
+                                offset: 0,
                                 searchTerms: ""
                             })
                         }
@@ -89,8 +88,8 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
     });
 
     slackEvents.on("group_rename", async (event) => {
-        logger.info("Private channel renamed", { channel: event.channel, new_name: event.name });
-        return Channel.findByIdAndUpdate(event.channel, { name: event.name })
+        logger.info("Private channel renamed", { channel: event.channel.id, new_name: event.channel.name });
+        return Channel.findByIdAndUpdate(event.channel.id, { name: event.channel.name })
             .exec()
             .catch(logger.error);
     });

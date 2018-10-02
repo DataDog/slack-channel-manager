@@ -19,6 +19,7 @@
     "express": "^4.16.3",
     "heroku-logger": "^0.3.1",
     "mongoose": "^5.3.1",
+    "mongoose-paginate": "^5.0.3",
     "request": "^2.88.0"
   }
 }

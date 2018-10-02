@@ -8,6 +8,8 @@
  * Copyright 2018 Datadog, Inc.
  */
 
+const authChannel = process.env.AUTH_CHANNEL;
+
 module.exports = (Channel, slack) => {
     return {
         isUserAuthorized: async function(user) {
@@ -28,20 +30,18 @@ module.exports = (Channel, slack) => {
             return false;
         },
 
-        listChannels: async function(cursor, searchTerms) {
-            let query = Channel.find();
-            if (searchTerms) {
-                query = query.or([
+        listChannels: async function(offset, searchTerms) {
+            const query = (!searchTerms) ? {} : {
+                $or: [
                     { name: { $regex: searchTerms, $options: "i" } },
                     { organization: { $regex: searchTerms, $options: "i" } }
-                ]);
-            }
-            query = query.skip(cursor || 0).limit(5);
-
-            const channels = await query.exec();
+                ]
+            };
+            const paginatedData = await Channel.paginate(query, { offset, limit: 5 });
+            const channels = paginatedData.docs;
             if (0 == channels.length) {
                 return {
-                    text: "There are currently no active private channels right now, " +
+                    text: "There are no active private channels that match your query, " +
                     "type `help` if you would like to request one."
                 };
             }
@@ -84,29 +84,29 @@ module.exports = (Channel, slack) => {
             });
 
             let actions = [];
-            if (cursor >= 5) {
+            if (offset >= 5) {
                 actions.push({
                     name: "list_private_channels",
                     text: "Prev page",
                     type: "button",
                     value: JSON.stringify({
-                        cursor: cursor - 5,
+                        offset: offset - 5,
                         searchTerms
                     })
                 });
             }
-            if (cursor + 5 < channels.length) {
+            if (offset + 5 < paginatedData.total) {
                 actions.push({
                     name: "list_private_channels",
                     text: "Next page",
                     type: "button",
                     value: JSON.stringify({
-                        cursor: cursor + 5,
+                        offset: offset + 5,
                         searchTerms
                     })
                 });
             }
-            if (channels.length > 5) {
+            if (paginatedData.total > 5) {
                 attachments.push({
                     text: "See more channels...",
                     callback_id: "menu_button",
@@ -158,7 +158,7 @@ module.exports = (Channel, slack) => {
                             label: "Days until expiry",
                             name: "expire_days",
                             hint: "Enter a positive integer.",
-                            value: expire_days || 7
+                            value: expire_days || 14
                         },
                         {
                             type: "textarea",
