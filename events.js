@@ -22,32 +22,14 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
             return;
         }
 
-        let cursor = "";
-        let allowed = false;
-        do {
-            let res = await slack.bot.users.conversations({
-                cursor,
-                exclude_archived: true,
-                types: "private_channel",
-                user: event.user
-            });
-            console.log("res: ", res);
-            if (res.channels.find(c => authChannel == c.name)) {
-                allowed = true;
-                break;
-            }
-
-            cursor = res.response_metadata.next_cursor;
-        } while (cursor);
-
-        if (!allowed) {
+        if (!(await shared.isUserAuthorized(event.user))) {
             logger.info("Unauthorized user trying to use channel manager", {
                 user: event.user,
                 message: event.text
             });
             return slack.bot.chat.postMessage({
                 channel: event.channel,
-                text: "*Oops, looks like you're not authorized to use this app.*\n" + 
+                text: ":no_entry_sign: *Oops, looks like you're not authorized to use this app.*\n" + 
                 "Currently, only Datadog employees are allowed to use this app. " + 
                 "If you are one and would like access, please contact the administrators."
             }).catch(logger.error);
@@ -95,15 +77,9 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
                 command: "list"
             });
             const searchTerms = message.replace("list", "").trim().replace(/ /g, "|");
-            let reply = await shared.listChannels(0, searchTerms);
+            const reply = await shared.listChannels(0, searchTerms);
             reply.channel = event.channel;
             return slack.bot.chat.postMessage(reply);
-        } else if (requestCommandRegex.test(message)) {
-            // TODO
-            logger.info("Recognized command", {
-                user: event.user,
-                command: "request"
-            });
         } else {
             return slack.bot.chat.postMessage({
                 channel: event.channel,

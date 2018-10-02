@@ -18,7 +18,13 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         });
 
         if ("request_private_channel" == payload.actions[0].name) {
-            return requestChannel(payload);
+            let reply = payload.original_message || payload.message;
+            const user = reply.user;
+            if (reply.attachments) {
+                delete reply.attachments;
+                reply.text = ":building_construction: Requesting private channel...";
+            }
+            return shared.requestChannelDialog(payload);
         } else if ("list_private_channels" == payload.actions[0].name) {
             const { cursor, searchTerms } = JSON.parse(payload.actions[0].value);
             return shared.listChannels(cursor || 0, searchTerms || "");
@@ -213,62 +219,11 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
             callback_id: "request_channel_action",
             message: payload.message
         });
-        return requestChannel(payload);
-    });
 
-    async function requestChannel(payload) {
-        let reply = payload.original_message || payload.message;
-        const user = reply.user;
-        if (reply.attachments) {
-            delete reply.attachments;
-            reply.text = ":building_construction: Requesting private channel...";
+        if (!(await shared.isUserAuthorized(payload.user.id))) {
+            logger.info("Unauthorized user trying to use channel manager", { user: payload.user.id });
+            return;
         }
-        slack.bot.dialog.open({
-            trigger_id: payload.trigger_id,
-            dialog: {
-                callback_id: "channel_request_dialog",
-                title: "Request private channel",
-                submit_label: "Submit",
-                elements: [
-                    {
-                        type: "text",
-                        label: "Channel name",
-                        name: "channel_name",
-                        min_length: 1,
-                        max_length: 21,
-                        hint: "May only contain lowercase letters, numbers, hyphens, and underscores."
-                    },
-                    {
-                        type: "select",
-                        label: "Invite user",
-                        name: "invitee",
-                        data_source: "users",
-                        value: user || ""
-                    },
-                    {
-                        type: "text",
-                        label: "Organization/Customer",
-                        name: "organization",
-                        optional: true
-                    },
-                    {
-                        type: "text",
-                        subtype: "number",
-                        label: "Days until expiry",
-                        name: "expire_days",
-                        hint: "Enter a positive integer."
-                    },
-                    {
-                        type: "textarea",
-                        label: "Purpose of channel",
-                        name: "purpose",
-                        optional: true,
-                        max_length: 250
-                    }
-                ]
-            }
-        });
-
-        return reply;
-    }
+        shared.requestChannelDialog(payload.trigger_id, { user: payload.message.user });
+    });
 };

@@ -10,6 +10,24 @@
 
 module.exports = (Channel, slack) => {
     return {
+        isUserAuthorized: async function(user) {
+            let cursor = "";
+            do {
+                const res = await slack.bot.users.conversations({
+                    cursor,
+                    exclude_archived: true,
+                    types: "private_channel",
+                    user: user
+                });
+                if (res.channels.find(c => authChannel == c.name)) {
+                    return true;
+                }
+
+                cursor = res.response_metadata.next_cursor;
+            } while (cursor);
+            return false;
+        },
+
         listChannels: async function(cursor, searchTerms) {
             let query = Channel.find();
             if (searchTerms) {
@@ -100,6 +118,59 @@ module.exports = (Channel, slack) => {
                 text: "Here is a `list` of active private channels that match your query:",
                 attachments
             };
+        },
+
+        requestChannelDialog: async function(trigger_id, data) {
+            const { name, user, organization, expire_days, purpose } = data;
+            return slack.bot.dialog.open({
+                trigger_id,
+                dialog: {
+                    callback_id: "channel_request_dialog",
+                    title: "Request private channel",
+                    submit_label: "Submit",
+                    elements: [
+                        {
+                            type: "text",
+                            label: "Channel name",
+                            name: "channel_name",
+                            min_length: 1,
+                            max_length: 21,
+                            hint: "May only contain lowercase letters, numbers, hyphens, and underscores.",
+                            value: name || ""
+                        },
+                        {
+                            type: "select",
+                            label: "Invite user",
+                            name: "invitee",
+                            data_source: "users",
+                            value: user || ""
+                        },
+                        {
+                            type: "text",
+                            label: "Organization/Customer",
+                            name: "organization",
+                            optional: true,
+                            value: organization || ""
+                        },
+                        {
+                            type: "text",
+                            subtype: "number",
+                            label: "Days until expiry",
+                            name: "expire_days",
+                            hint: "Enter a positive integer.",
+                            value: expire_days || 7
+                        },
+                        {
+                            type: "textarea",
+                            label: "Purpose of channel",
+                            name: "purpose",
+                            optional: true,
+                            max_length: 250,
+                            value: purpose || ""
+                        }
+                    ]
+                }
+            });
         }
     };
 };

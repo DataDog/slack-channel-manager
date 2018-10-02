@@ -162,3 +162,4 @@ typings/
 # Project-specific ignores
 
 db.*
+mongodb-data/

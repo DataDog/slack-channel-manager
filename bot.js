@@ -8,9 +8,9 @@
  * Copyright 2018 Datadog, Inc.
  */
 
-// TODO: migrate to new workspace API once Slack finishes it
-// TODO: add `extend` command to extend even after the reminder is over
-// TODO: comply with https://github.com/DataDog/devops/wiki/Datadog-Open-Source-Policy#releasing-a-new-open-source-repository
+// TODO migrate to new workspace API once Slack finishes it
+// TODO add `extend` command to extend even after the reminder is over
+// TODO comply with https://github.com/DataDog/devops/wiki/Datadog-Open-Source-Policy#releasing-a-new-open-source-repository
 
 const https = require("https");
 const request = require("request");
@@ -39,7 +39,7 @@ const slackInteractions = createMessageAdapter(clientSigningSecret, {
     lateResponseFallbackEnabled: true
 });
 
-// TODO: remove this once mongoose fixes this deprecation
+// TODO remove this once mongoose fixes this deprecation
 mongoose.set('useFindAndModify', false);
 mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true });
 const ChannelSchema = new mongoose.Schema({
@@ -149,7 +149,7 @@ app.listen(port, () => {
                 }
             });
         },
-        runOnInit: false
+        runOnInit: true
     });
 
     expiryJob.start();
