@@ -15,7 +15,7 @@ module.exports = (Channel, slack) => {
         isUserAuthorized: async function(user) {
             let cursor = "";
             do {
-                const res = await slack.bot.users.conversations({
+                const res = await slack.user.users.conversations({
                     cursor,
                     exclude_archived: true,
                     types: "private_channel",
