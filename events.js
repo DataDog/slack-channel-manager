@@ -28,8 +28,8 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
             });
             return slack.bot.chat.postMessage({
                 channel: event.channel,
-                text: ":no_entry_sign: *Oops, looks like you're not authorized to use this app.*\n" + 
-                "Currently, only Datadog employees are allowed to use this app. " + 
+                text: ":no_entry_sign: *Oops, looks like you're not authorized to do that.*\n" +
+                "Currently, only Datadog employees are allowed to do that. " +
                 "If you are one and would like access, please contact the administrators."
             }).catch(logger.error);
         }
@@ -44,7 +44,8 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
                 channel: event.channel,
                 text: "Here are your options. Type:\n" +
                 "- :information_source: | `help`: Print this help message\n" +
-                "- :scroll: | `list [keywords ...]`: List active private channels that match your query\n\n" +
+                "- :scroll: | `list [keywords ...]`: List active private channels that match your query\n" +
+                "- :exclamation: | `admin`: List options for admins of this Slack workspace\n\n" +
                 "You can also click on the following options:",
                 attachments: [{
                     text: "",
@@ -79,6 +80,42 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
             const reply = await shared.listChannels(0, searchTerms);
             reply.channel = event.channel;
             return slack.bot.chat.postMessage(reply);
+        } else if (message.startsWith("admin")) {
+            logger.info("Recognized command", {
+                user: event.user,
+                command: "list"
+            });
+
+            const res = await slack.bot.users.info({ user: event.user });
+            if (!res.user.is_admin) {
+                return slack.bot.chat.postMessage({
+                    channel: event.channel,
+                    text: ":no_entry_sign: *Oops, looks like you're not authorized to do that.*\n" +
+                    "Currently, only Datadog employees are allowed to do that. " +
+                    "If you are one and would like access, please contact the administrators."
+                }).catch(logger.error);
+            }
+
+            return slack.bot.chat.postMessage({
+                channel: event.channel,
+                text: "These are things you can do as an admin.",
+                attachments: [{
+                    text: "",
+                    fallback: "You are unable to choose an option",
+                    callback_id: "admin_button",
+                    color: "#3AA3E3",
+                    attachment_type: "default",
+                    actions: [{
+                        name: "list_unmanaged",
+                        text: "List unmanaged private channels",
+                        type: "button",
+                        value: JSON.stringify({
+                            api_cursor: "",
+                            sub_offset: 0
+                        })
+                    }]
+                }]
+            }).catch(logger.error);
         } else {
             return slack.bot.chat.postMessage({
                 channel: event.channel,

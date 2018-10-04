@@ -29,6 +29,20 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         }
     });
 
+    slackInteractions.action("admin_button", async (payload) => {
+        logger.info("Button press", {
+            user_id: payload.user.id,
+            type: "button",
+            callback_id: "admin_button",
+            action: payload.actions[0]
+        });
+
+        if ("list_unmanaged" == payload.actions[0].name) {
+            const { api_cursor, sub_offset } = JSON.parse(payload.actions[0].value);
+            return shared.listUnmanaged(api_cursor, sub_offset);
+        }
+    });
+
     slackInteractions.action("join_channel_button", async (payload) => {
         logger.info("Button press", {
             user_id: payload.user.id,
