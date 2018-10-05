@@ -59,7 +59,7 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
                 if (channel == reply.attachments[i].actions[0].value) {
                     reply.attachments[i].actions.splice(0, 1);
                     reply.attachments[i].color = "good";
-                    reply.attachments[i].text += "\n:white_check_mark: You have been invited to this channel.";
+                    reply.attachments[i].text += "\n:white_check_mark: You have been invited to this channel."
                     return reply;
                 }
             }

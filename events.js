@@ -46,9 +46,10 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
                 text: "Here are your options. Type:\n" +
                 "- :information_source: | `help`: Print this help message\n" +
                 "- :scroll: | `list [keywords ...]`: List active private channels that match your query\n\n" +
-                "If you would like me to start managing one of your currently **unmanaged** private channels, " +
+                "If you would like me to start managing one of your currently *unmanaged* private channels, " +
                 `simply invite <@${res.user_id}> to that channel.\n\n` +
                 "You can also click on the following options:",
+                mrkdwn: true,
                 attachments: [{
                     text: "",
                     fallback: "You are unable to choose an option",
@@ -128,7 +129,21 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
 
     slackEvents.on("member_joined_channel", async (event) => {
         let res = await slack.user.auth.test();
-        if (event.user != res.user_id) {
+        const role_user_id = res.user_id;
+
+        res = await slack.bot.auth.test();
+        if (event.user == res.user_id) {
+            return slack.bot.chat.postMessage({
+                channel: event.channel,
+                text: "It looks like you want this channel to be automatically managed. " +
+                `Did you mean to invite <@${role_user_id}> instead? I just post status updates` +
+                "about the automatic channel management service and interact with you in the " +
+                "*Apps* section of your Slack sidebar.\n" +
+                "(P.S. you can kick me from this channel if you'd like, I have nothing else to do here.)"
+            });
+        }
+
+        if (role_user_id != event.user) {
             return;
         }
 
@@ -145,7 +160,7 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
 
         return slack.user.chat.postMessage({
             channel: event.channel,
-            text: `Thanks for inviting me, <@${event.inviter}>, I will start managing this channel now.`,
+            text: `Thanks <@${event.inviter}>, this channel will now be managed.`,
         });
     });
 
