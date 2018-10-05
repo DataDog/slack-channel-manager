@@ -30,118 +30,6 @@ module.exports = (Channel, slack) => {
             return false;
         },
 
-        // NOTE: this relies on the fact that the conversations.list API sorts
-        // returned channels by name
-        // api_cursor is the offset/cursor used to request channels from Slack's API
-        // sub_offset is the offset used to select channels from a response of Slack's API onwards
-        listUnmanaged: async function(api_cursor, sub_offset) {
-            const limit = 100;
-            let allUnmanaged = [];
-            const old_cursor = api_cursor;
-            const old_offset = sub_offset;
-
-            let i;
-            let res;
-            do {
-                res = await slack.user.conversations.list({
-                    limit,
-                    types: "private_channel",
-                    exclude_archived: true,
-                    cursor: api_cursor
-                });
-                console.log(res.channels);
-
-                const ids = res.channels.map(channel => channel.id);
-                const managedChannels = await Channel.find({ _id: { $in: ids } }).exec();
-                const managedIds = managedChannels.map(channel => channel.id);
-                console.log("managedIds: ", managedIds);
-
-                for (
-                    i = sub_offset;
-                    (i < res.channels.length) && (allUnmanaged.length < 5);
-                    ++i
-                ) {
-                    const channel = res.channels[i];
-                    if (-1 == managedIds.indexOf(channel.id)) {
-                        allUnmanaged.push(channel);
-                    }
-                }
-                api_cursor = res.response_metadata.next_cursor;
-                sub_offset = 0;
-            } while (api_cursor && (allUnmanaged.length < 5));
-
-            if (0 == allUnmanaged.length) {
-                return {
-                    text: "Hooray! There are no more unmanaged private channels left in the workspace."
-                };
-            }
-
-            let attachments = [];
-            allUnmanaged.forEach((channel) => {
-                let text = "";
-                if (channel.topic.value) {
-                    text += `_${channel.topic.value}_`;
-                }
-                if (channel.purpose.value) {
-                    text += "\n" + channel.purpose.value;
-                }
-
-                attachments.push({
-                    title: `#${channel.name}`,
-                    text,
-                    callback_id: "unmanaged_channel_button",
-                    actions: [{
-                        name: "add_channel_manager",
-                        text: "Add Channel Manager",
-                        type: "button",
-                        style: "primary",
-                        value: channel.id
-                    }],
-                    footer: "Date created",
-                    ts: channel.created,
-                    mrkdwn: true
-                });
-            });
-
-            let actions = [];
-            if (old_cursor) {
-                actions.push({
-                    name: "list_unmanaged",
-                    text: "Prev page",
-                    type: "button",
-                    value: JSON.stringify({
-                        api_cursor: old_cursor,
-                        sub_offset: old_offset
-                    })
-                });
-            }
-            if (api_cursor) {
-                actions.push({
-                    name: "list_unmanaged",
-                    text: "Next page",
-                    type: "button",
-                    value: JSON.stringify({
-                        api_cursor,
-                        sub_offset: i % 5
-                    })
-                });
-            }
-            if (limit == res.channels.length) {
-                attachments.push({
-                    text: "See more channels...",
-                    callback_id: "admin_button",
-                    actions
-                });
-            }
-
-            return {
-                text: "Here is a list of unmanaged active private channels.",
-                attachments
-            };
-
-
-        },
-
         listChannels: async function(offset, searchTerms) {
             const query = (!searchTerms) ? {} : {
                 $or: [
@@ -160,7 +48,10 @@ module.exports = (Channel, slack) => {
 
             let attachments = [];
             channels.forEach((channel) => {
-                let text = `_${channel.topic}_`;
+                let text = "";
+                if (channel.topic) {
+                    text += `_${channel.topic}_`;
+                }
                 if (channel.purpose) {
                     text += "\n" + channel.purpose;
                 }

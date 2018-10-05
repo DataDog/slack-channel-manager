@@ -9,7 +9,6 @@
  */
 
 const helpCommandRegex = /help|option|action|command|menu/i;
-const requestCommandRegex = /request|create|private/i;
 
 module.exports = (shared, logger, Channel, slack, slackEvents) => {
     slackEvents.on("message", async (event) => {
@@ -40,12 +39,15 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
                 user: event.user,
                 command: "help"
             });
+
+            const res = await slack.user.auth.test();
             return slack.bot.chat.postMessage({
                 channel: event.channel,
                 text: "Here are your options. Type:\n" +
                 "- :information_source: | `help`: Print this help message\n" +
-                "- :scroll: | `list [keywords ...]`: List active private channels that match your query\n" +
-                "- :exclamation: | `admin`: List options for admins of this Slack workspace\n\n" +
+                "- :scroll: | `list [keywords ...]`: List active private channels that match your query\n\n" +
+                "If you would like me to start managing one of your currently **unmanaged** private channels, " +
+                `simply invite <@${res.user_id}> to that channel.\n\n` +
                 "You can also click on the following options:",
                 attachments: [{
                     text: "",
@@ -80,42 +82,6 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
             const reply = await shared.listChannels(0, searchTerms);
             reply.channel = event.channel;
             return slack.bot.chat.postMessage(reply);
-        } else if (message.startsWith("admin")) {
-            logger.info("Recognized command", {
-                user: event.user,
-                command: "list"
-            });
-
-            const res = await slack.bot.users.info({ user: event.user });
-            if (!res.user.is_admin) {
-                return slack.bot.chat.postMessage({
-                    channel: event.channel,
-                    text: ":no_entry_sign: *Oops, looks like you're not authorized to do that.*\n" +
-                    "Currently, only Datadog employees are allowed to do that. " +
-                    "If you are one and would like access, please contact the administrators."
-                }).catch(logger.error);
-            }
-
-            return slack.bot.chat.postMessage({
-                channel: event.channel,
-                text: "These are things you can do as an admin.",
-                attachments: [{
-                    text: "",
-                    fallback: "You are unable to choose an option",
-                    callback_id: "admin_button",
-                    color: "#3AA3E3",
-                    attachment_type: "default",
-                    actions: [{
-                        name: "list_unmanaged",
-                        text: "List unmanaged private channels",
-                        type: "button",
-                        value: JSON.stringify({
-                            api_cursor: "",
-                            sub_offset: 0
-                        })
-                    }]
-                }]
-            }).catch(logger.error);
         } else {
             return slack.bot.chat.postMessage({
                 channel: event.channel,
@@ -138,6 +104,59 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
     slackEvents.on("group_deleted", async (event) => {
         logger.info("Private channel deleted, removing from DB", { channel: event.channel });
         return Channel.findByIdAndRemove(event.channel).catch(logger.error);
+    });
+
+    slackEvents.on("group_unarchive", async (event) => {
+        logger.info("Managed private channel unarchived, adding it back to DB", { channel: event.channel });
+        const res = await slack.user.conversations.info({ channel: event.channel });
+
+        await Channel.insertMany([{
+            _id: event.channel,
+            name: res.channel.name,
+            created: res.channel.created,
+            topic: res.channel.topic.value,
+            purpose: res.channel.purpose.value,
+            expire_days: 28,
+            reminded: false
+        }]);
+
+        return slack.user.chat.postMessage({
+            channel: event.channel,
+            text: "Looks like this channel has been unarchived! I'm going to start managing it again.",
+        });
+    });
+
+    slackEvents.on("member_joined_channel", async (event) => {
+        let res = await slack.user.auth.test();
+        if (event.user != res.user_id) {
+            return;
+        }
+
+        res = await slack.user.conversations.info({ channel: event.channel });
+
+        await Channel.findByIdAndUpdate(event.channel, {
+            name: res.channel.name,
+            created: res.channel.created,
+            topic: res.channel.topic.value,
+            purpose: res.channel.purpose.value,
+            expire_days: 28,
+            reminded: false
+        }, { upsert: true, setDefaultsOnInsert: true });
+
+        return slack.user.chat.postMessage({
+            channel: event.channel,
+            text: `Thanks for inviting me, <@${event.inviter}>, I will start managing this channel now.`,
+        });
+    });
+
+    slackEvents.on("member_left_channel", async (event) => {
+        const res = await slack.user.auth.test();
+        if (event.user != res.user_id) {
+            return;
+        }
+
+        logger.info("Channel manager left or was kicked, removing from managed DB", { channel: event.channel });
+        return Channel.findByIdAndRemove(event.channel);
     });
 
     slackEvents.on("error", logger.error);

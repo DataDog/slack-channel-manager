@@ -12,7 +12,6 @@
 // TODO add `extend` command to extend even after the reminder is over
 // TODO comply with https://github.com/DataDog/devops/wiki/Datadog-Open-Source-Policy#releasing-a-new-open-source-repository
 
-const https = require("https");
 const request = require("request");
 const express = require("express");
 const mongoose = require("mongoose");
@@ -41,7 +40,7 @@ const slackInteractions = createMessageAdapter(clientSigningSecret, {
 });
 
 // TODO remove this once mongoose fixes this deprecation
-mongoose.set('useFindAndModify', false);
+mongoose.set("useFindAndModify", false);
 mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true });
 const ChannelSchema = new mongoose.Schema({
     _id: { type: String, required: true },
@@ -99,7 +98,7 @@ app.listen(port, () => {
     logger.info("Slack Channel Manager server online", { port });
     const expiryJob = new CronJob({
         // cronTime: '0 0 * * * *', // runs once every hour
-        cronTime: '0 0 0 * * *', // runs once every day
+        cronTime: "0 0 0 * * *", // runs once every day
         onTick: async () => {
             logger.info("Channel expiry job firing now");
             const channels = await Channel.find().exec();
