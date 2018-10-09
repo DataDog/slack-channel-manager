@@ -135,6 +135,8 @@ cp .env.example .env
 # Follow the instructions inside the new .env file and fill it out
 ```
 
+Finally, create an "authorization" private channel in your Slack workspace. This channel will be used as a home for all users that are allowed to interact with the Channel Manager. In other words, if a user would like to use the bot, they must be a part of this authorization channel. The name of this channel can be any valid channel name, but it must match the value of `AUTH_CHANNEL` as specified in your `.env` file.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
