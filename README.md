@@ -124,5 +124,5 @@ cp .env.example .env
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
 
-[1] https://ngrok.com/
-[2] https://api.slack.com/apps/
+[1]: https://ngrok.com/
+[2]: https://api.slack.com/apps/
