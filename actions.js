@@ -18,7 +18,7 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         });
 
         if ("request_private_channel" == payload.actions[0].name) {
-            let reply = payload.original_message;
+            const reply = payload.original_message;
             delete reply.attachments;
             reply.text = ":building_construction: Requesting private channel...";
             shared.requestChannelDialog(payload.trigger_id, {});
@@ -38,7 +38,7 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         });
 
         const channel = payload.actions[0].value;
-        let reply = payload.original_message;
+        const reply = payload.original_message;
 
         if ("join_channel" == payload.actions[0].name) {
             try {
@@ -59,7 +59,7 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
                 if (channel == reply.attachments[i].actions[0].value) {
                     reply.attachments[i].actions.splice(0, 1);
                     reply.attachments[i].color = "good";
-                    reply.attachments[i].text += "\n:white_check_mark: You have been invited to this channel."
+                    reply.attachments[i].text += "\n:white_check_mark: You have been invited to this channel.";
                     return reply;
                 }
             }

@@ -161,7 +161,7 @@ module.exports = (Channel, slack) => {
                             label: "Days until expiry",
                             name: "expire_days",
                             hint: "Enter a positive integer.",
-                            value: expire_days || 14
+                            value: expire_days || 28
                         },
                         {
                             type: "textarea",

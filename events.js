@@ -128,6 +128,12 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
     });
 
     slackEvents.on("member_joined_channel", async (event) => {
+        // Don't do anything if this the joining member and the inviter
+        // are the same (this happens when the bot creates a new channel)
+        if (!event.inviter) {
+            return;
+        }
+
         let res = await slack.user.auth.test();
         const role_user_id = res.user_id;
 
