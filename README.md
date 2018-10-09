@@ -79,7 +79,15 @@ npm start
 
 ### Setting up the Slack App
 
+IMPORTANT: Before proceeding, create a new "role account" user and make it an administrator in your Slack workspace. Use this account as the account you use to login to the [Slack Apps Dashboard][3] and perform all the following setup instructions. Otherwise, the bot will perform all actions _on behalf of your personal Slack account_, which is probably not desirable.
+
 Go to your [Slack Apps Dashboard][3] and click on **Create New App**. Make sure not to click on the _Interested in the next generation of apps?_ section. Give the app a name (e.g. `slack-channel-manager`), select a workspace in which you will be testing the bot, and submit the form.
+
+Navigate to the _Bot Users_ section in the sidebar, then
+- Click on **Add a Bot User**
+- Give it a suitable _Display name_ (e.g. "Channel Manager Bot") and a _Default username_ (e.g. "channel-manager-bot")
+- Toggle **Always Show My Bot as Online** on
+- Submit the form with **Add Bot User**
 
 Navigate to the _Interactive Components_ section in the sidebar, then
 - Toggle **Interactivity** on
