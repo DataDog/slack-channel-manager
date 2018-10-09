@@ -2,7 +2,22 @@
 
 Slack bot for private channel management in a public slack workspace.
 
-## Getting Started
+## Usage
+
+Please see the [detailed usage instructions][1] on the project wiki more information.
+
+## Roadmap
+
+Currently, the following features are supported:
+- Requesting a private channel for a specific user
+- Querying a list of all active channels managed by the bot
+- Joining a private channel
+- Marking managed channels for automatic expiry
+- Managing channels that were manually created by users (unmanaged)
+
+If you would like to see any features implemented (or see any problems with the current functionality), please submit an issue or a pull request.
+
+## Setup Instructions
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. The deployment process will be exactly the same.
 
@@ -11,9 +26,9 @@ These instructions will get you a copy of the project up and running on your loc
 These dependencies are required before proceeding with a local installation:
 - NodeJS and NPM
 - MongoDB
-- [ngrok][1] (or some secure localhost tunnelling service)
+- [ngrok][2] (or some secure localhost tunnelling service)
 
-### 1. Installing locally
+### Installing locally
 
 Clone this repo
 
@@ -28,7 +43,7 @@ cd slack-channel-manager
 npm install
 ```
 
-### 2. Running locally
+### Running locally
 
 Run the localhost tunnelling service (instructions here are for ngrok on development port 8080).
 Note down the <ngrok-subdomain> that appears in the output.
@@ -62,9 +77,9 @@ Run the bot
 npm start
 ```
 
-### 2. Setting up the Slack App
+### Setting up the Slack App
 
-Go to your [Slack Apps Dashboard][2] and click on **Create New App**. Make sure not to click on the _Interested in the next generation of apps?_ section. Give the app a name (e.g. `slack-channel-manager`), select a workspace in which you will be testing the bot, and submit the form.
+Go to your [Slack Apps Dashboard][3] and click on **Create New App**. Make sure not to click on the _Interested in the next generation of apps?_ section. Give the app a name (e.g. `slack-channel-manager`), select a workspace in which you will be testing the bot, and submit the form.
 
 Navigate to the _Interactive Components_ section in the sidebar, then
 - Toggle **Interactivity** on
@@ -122,7 +137,8 @@ cp .env.example .env
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
 
-[1]: https://ngrok.com/
-[2]: https://api.slack.com/apps/
+[1]: https://github.com/DataDog/slack-channel-manager/wiki/Usage-Instructions
+[2]: https://ngrok.com/
+[3]: https://api.slack.com/apps/
