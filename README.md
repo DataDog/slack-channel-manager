@@ -11,7 +11,7 @@ Please see the [detailed usage instructions][1] on the project wiki more informa
 Currently, the following features are supported:
 - Requesting a private channel for a specific user
 - Querying a list of all active channels managed by the bot
-- Joining a private channel
+- Joining a private channel created by another authorized user
 - Marking managed channels for automatic expiry
 - Managing channels that were manually created by users (unmanaged)
 
@@ -51,7 +51,7 @@ Note down the <ngrok-subdomain> that appears in the output.
 ```sh
 ngrok http 8080
 ## You should see the following output if your ngrok account has been setup correctly
-# ngrok by @inconshreveable                                                                                                # # # (Ctrl+C to quit)
+# ngrok by @inconshreveable
 
 # Session Status                online
 # Account                       <your name> (Plan: Free)
