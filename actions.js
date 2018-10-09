@@ -56,7 +56,8 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
             }
 
             for (let i = 0; i < reply.attachments.length; ++i) {
-                if (channel == reply.attachments[i].actions[0].value) {
+                if (reply.attachments[i].actions &&
+                    channel == reply.attachments[i].actions[0].value) {
                     reply.attachments[i].actions.splice(0, 1);
                     reply.attachments[i].color = "good";
                     reply.attachments[i].text += "\n:white_check_mark: You have been invited to this channel.";
@@ -78,7 +79,8 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
                 }
             }
             for (let i = 0; i < reply.attachments.length; ++i) {
-                if (channel == reply.attachments[i].actions[0].value) {
+                if (reply.attachments[i].actions &&
+                    channel == reply.attachments[i].actions[0].value) {
                     delete reply.attachments[i].actions;
                     reply.attachments[i].color = "warning";
                     reply.attachments[i].text += "\n:file_folder: This channel is now archived.";

@@ -28,8 +28,7 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
             return slack.bot.chat.postMessage({
                 channel: event.channel,
                 text: ":no_entry_sign: *Oops, looks like you're not authorized to do that.*\n" +
-                "Currently, only Datadog employees are allowed to do that. " +
-                "If you are one and would like access, please contact the administrators."
+                "If you would like access to this app, please contact the administrators."
             }).catch(logger.error);
         }
 
