@@ -55,7 +55,7 @@ const ChannelSchema = new mongoose.Schema({
 ChannelSchema.plugin(mongoosePaginate);
 const Channel = mongoose.model("Channel", ChannelSchema);
 
-const shared = require("./shared.js")(Channel, slack);
+const shared = require("./shared.js")(logger, Channel, slack);
 require("./events.js")(shared, logger, Channel, slack, slackEvents);
 require("./actions.js")(shared, logger, Channel, slack, slackInteractions);
 
@@ -101,7 +101,12 @@ app.listen(port, () => {
         cronTime: "0 0 0 * * *", // runs once every day
         onTick: async () => {
             logger.info("Channel expiry job firing now");
-            const channels = await Channel.find().exec();
+            let channels = [];
+            try {
+                channels = await Channel.find().exec();
+            } catch (err) {
+                logger.error(err);
+            }
 
             const curDate = new Date();
             channels.forEach((channel) => {

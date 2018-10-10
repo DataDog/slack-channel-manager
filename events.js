@@ -99,26 +99,35 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
 
     slackEvents.on("group_archive", async (event) => {
         logger.info("Private channel archived, removing from DB", { channel: event.channel });
-        return Channel.findByIdAndRemove(event.channel).catch(logger.error);
+        return Channel.findByIdAndRemove(event.channel)
+            .exec()
+            .catch(logger.error);
     });
     slackEvents.on("group_deleted", async (event) => {
         logger.info("Private channel deleted, removing from DB", { channel: event.channel });
-        return Channel.findByIdAndRemove(event.channel).catch(logger.error);
+        return Channel.findByIdAndRemove(event.channel)
+            .exec()
+            .catch(logger.error);
     });
 
     slackEvents.on("group_unarchive", async (event) => {
         logger.info("Managed private channel unarchived, adding it back to DB", { channel: event.channel });
         const res = await slack.user.conversations.info({ channel: event.channel });
 
-        await Channel.insertMany([{
-            _id: event.channel,
-            name: res.channel.name,
-            created: res.channel.created,
-            topic: res.channel.topic.value,
-            purpose: res.channel.purpose.value,
-            expire_days: 28,
-            reminded: false
-        }]);
+        try {
+            await Channel.insertMany([{
+                _id: event.channel,
+                name: res.channel.name,
+                created: res.channel.created,
+                topic: res.channel.topic.value,
+                purpose: res.channel.purpose.value,
+                expire_days: 28,
+                reminded: false
+            }]);
+        } catch (err) {
+            logger.error(err);
+            return;
+        }
 
         return slack.user.chat.postMessage({
             channel: event.channel,
@@ -154,14 +163,19 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
 
         res = await slack.user.conversations.info({ channel: event.channel });
 
-        await Channel.findByIdAndUpdate(event.channel, {
-            name: res.channel.name,
-            created: res.channel.created,
-            topic: res.channel.topic.value,
-            purpose: res.channel.purpose.value,
-            expire_days: 28,
-            reminded: false
-        }, { upsert: true, setDefaultsOnInsert: true });
+        try {
+            await Channel.findByIdAndUpdate(event.channel, {
+                name: res.channel.name,
+                created: res.channel.created,
+                topic: res.channel.topic.value,
+                purpose: res.channel.purpose.value,
+                expire_days: 28,
+                reminded: false
+            }, { upsert: true, setDefaultsOnInsert: true }).exec();
+        } catch (err) {
+            logger.error(err);
+            return;
+        }
 
         return slack.user.chat.postMessage({
             channel: event.channel,
@@ -176,7 +190,9 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
         }
 
         logger.info("Channel manager left or was kicked, removing from managed DB", { channel: event.channel });
-        return Channel.findByIdAndRemove(event.channel);
+        return Channel.findByIdAndRemove(event.channel)
+            .exec()
+            .catch(logger.error);
     });
 
     slackEvents.on("error", logger.error);

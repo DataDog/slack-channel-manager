@@ -172,21 +172,26 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         const created = res.group.created;
         channel_name = res.group.name;
 
-        await Promise.all([
-            slack.user.conversations.invite({ channel, users: `${invitee},${me}` }),
-            slack.user.groups.setTopic({ channel, topic }),
-            slack.user.groups.setPurpose({ channel, purpose }),
-            Channel.insertMany([{
-                _id: channel,
-                name: channel_name,
-                created,
-                user: invitee,
-                organization: organization || "",
-                topic,
-                purpose,
-                expire_days: parseInt(expire_days)
-            }])
-        ]);
+        try {
+            await Promise.all([
+                slack.user.conversations.invite({ channel, users: `${invitee},${me}` }),
+                slack.user.groups.setTopic({ channel, topic }),
+                slack.user.groups.setPurpose({ channel, purpose }),
+                Channel.insertMany([{
+                    _id: channel,
+                    name: channel_name,
+                    created,
+                    user: invitee,
+                    organization: organization || "",
+                    topic,
+                    purpose,
+                    expire_days: parseInt(expire_days)
+                }])
+            ]);
+        } catch (err) {
+            logger.error(err);
+            return;
+        }
 
         respond({ text: `Successfully created private channel #${channel_name} for <@${invitee}> from ${organization}!` });
     });
@@ -201,7 +206,7 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
 
         if ("extend" == payload.actions[0].name) {
             try {
-                await Channel.findByIdAndUpdate(payload.channel.id, { reminded: false, $inc: { expire_days: 7 } });
+                await Channel.findByIdAndUpdate(payload.channel.id, { reminded: false, $inc: { expire_days: 7 } }).exec();
             } catch (err) {
                 logger.error(err);
             }

@@ -10,7 +10,7 @@
 
 const authChannel = process.env.AUTH_CHANNEL;
 
-module.exports = (Channel, slack) => {
+module.exports = (logger, Channel, slack) => {
     return {
         isUserAuthorized: async function(user) {
             let cursor = "";
@@ -37,7 +37,17 @@ module.exports = (Channel, slack) => {
                     { organization: { $regex: searchTerms, $options: "i" } }
                 ]
             };
-            const paginatedData = await Channel.paginate(query, { offset, limit: 5 });
+
+            let paginatedData;
+            try {
+                paginatedData = await Channel.paginate(query, { offset, limit: 5 });
+            } catch (err) {
+                logger.error(err);
+                return {
+                    text: ":heavy_exclamation_mark: An error occurred while trying to get a list of channels."
+                };
+            }
+
             const channels = paginatedData.docs;
             if (0 == channels.length) {
                 return {
