@@ -10,6 +10,7 @@
 
 const helpCommandRegex = /help|option|action|command|menu/i;
 const usageDocsURL = "https://github.com/DataDog/slack-channel-manager/wiki/Usage-Instructions";
+const secondsInDay = 60*60*24;
 
 module.exports = (shared, logger, Channel, slack, slackEvents) => {
     slackEvents.on("message", async (event) => {
@@ -117,15 +118,15 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
         const res = await slack.user.conversations.info({ channel: event.channel });
 
         try {
-            await Channel.insertMany([{
-                _id: event.channel,
+            const ts_expiry = Math.floor(Date.now() / 1000) + (28*secondsInDay);
+            await Channel.findByIdAndUpdate(event.channel, {
                 name: res.channel.name,
-                created: res.channel.created,
                 topic: res.channel.topic.value,
                 purpose: res.channel.purpose.value,
-                expire_days: 28,
+                ts_created: res.channel.created,
+                ts_expiry,
                 reminded: false
-            }]);
+            }, { upsert: true, setDefaultsOnInsert: true }).exec();
         } catch (err) {
             logger.error(err);
             return;
@@ -166,12 +167,13 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
         res = await slack.user.conversations.info({ channel: event.channel });
 
         try {
+            const ts_expiry = Math.floor(Date.now() / 1000) + (28*secondsInDay);
             await Channel.findByIdAndUpdate(event.channel, {
                 name: res.channel.name,
-                created: res.channel.created,
                 topic: res.channel.topic.value,
                 purpose: res.channel.purpose.value,
-                expire_days: 28,
+                ts_created: res.channel.created,
+                ts_expiry,
                 reminded: false
             }, { upsert: true, setDefaultsOnInsert: true }).exec();
         } catch (err) {

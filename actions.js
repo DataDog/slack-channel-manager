@@ -169,8 +169,12 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         }
 
         const channel = res.group.id;
-        const created = res.group.created;
         channel_name = res.group.name;
+
+        // Slack returns UNIX timestamp (seconds since epoch)
+        const ts_created = res.group.created;
+        const secondsInDay = 60*60*24;
+        const ts_expiry = ts_created + (secondsInDay*parseInt(expire_days));
 
         try {
             await Promise.all([
@@ -180,12 +184,12 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
                 Channel.insertMany([{
                     _id: channel,
                     name: channel_name,
-                    created,
                     user: invitee,
                     organization: organization || "",
+                    ts_created,
+                    ts_expiry,
                     topic,
-                    purpose,
-                    expire_days: parseInt(expire_days)
+                    purpose
                 }])
             ]);
         } catch (err) {
@@ -205,8 +209,12 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         });
 
         if ("extend" == payload.actions[0].name) {
+            const secondsInWeek = 60*60*24*7;
             try {
-                await Channel.findByIdAndUpdate(payload.channel.id, { reminded: false, $inc: { expire_days: 7 } }).exec();
+                await Channel.findByIdAndUpdate(payload.channel.id, {
+                    reminded: false,
+                    $inc: { ts_expiry: secondsInWeek }
+                }).exec();
             } catch (err) {
                 logger.error(err);
             }

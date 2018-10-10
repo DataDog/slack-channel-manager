@@ -28,8 +28,6 @@ const clientSecret = process.env.SLACK_CLIENT_SECRET;
 const clientSigningSecret = process.env.SLACK_SIGNING_SECRET;
 const port = process.env.PORT || 8080;
 
-const oneDay = 1000*60*60*24; // in milliseconds
-
 const slack = {
     user: new WebClient(process.env.SLACK_USER_TOKEN),
     bot: new WebClient(process.env.SLACK_BOT_TOKEN)
@@ -45,11 +43,11 @@ mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true });
 const ChannelSchema = new mongoose.Schema({
     _id: { type: String, required: true },
     name: { type: String, required: true },
-    created: { type: Number, required: true },
+    ts_created: { type: Number, required: true },
+    ts_expiry: { type: Number, required: true },
     organization: String,
     topic: String,
     purpose: String,
-    expire_days: { type: Number, default: 28 },
     reminded: { type: Boolean, default: false }
 });
 ChannelSchema.plugin(mongoosePaginate);
@@ -108,13 +106,13 @@ app.listen(port, () => {
                 logger.error(err);
             }
 
-            const curDate = new Date();
+            const ts_curdate = Math.floor(Date.now() / 1000);
+            const secondsInWeek = 60*60*24*7;
             channels.forEach((channel) => {
-                const diff = curDate - new Date(channel.created * 1000);
-                if (diff >= (oneDay * channel.expire_days)) {
+                if (ts_curdate >= channel.ts_expiry) {
                     logger.info(`#${channel.name} has expired, auto-archiving now.`, { channel: channel.id });
                     slack.user.groups.archive({ channel: channel.id }).catch(logger.error);
-                } else if (!channel.reminded && diff >= (oneDay * Math.max(channel.expire_days - 7, 0))) {
+                } else if (!channel.reminded && ts_curdate >= channel.ts_expiry - secondsInWeek) {
                     logger.info(`#${channel.name} will expire within a week`, { channel: channel.id });
                     slack.user.chat.postMessage({
                         channel: channel.id,

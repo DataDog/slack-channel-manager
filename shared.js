@@ -90,8 +90,8 @@ module.exports = (logger, Channel, slack) => {
                                 dismiss_text: "No"
                             }
                         }],
-                    footer: "Date created",
-                    ts: channel.created,
+                    footer: "Expiry Date",
+                    ts: channel.ts_expiry,
                     mrkdwn: true
                 });
             });
