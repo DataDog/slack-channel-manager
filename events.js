@@ -9,6 +9,7 @@
  */
 
 const helpCommandRegex = /help|option|action|command|menu/i;
+const usageDocsURL = "https://github.com/DataDog/slack-channel-manager/wiki/Usage-Instructions";
 
 module.exports = (shared, logger, Channel, slack, slackEvents) => {
     slackEvents.on("message", async (event) => {
@@ -47,7 +48,8 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
                 "- :scroll: | `list [keywords ...]`: List active private channels that match your query\n\n" +
                 "If you would like me to start managing one of your currently *unmanaged* private channels, " +
                 `simply invite <@${res.user_id}> to that channel.\n\n` +
-                "You can also click on the following options:",
+                "You can also click on the buttons listed below.\n" +
+                `For more information about usage, please see ${usageDocsURL}.`,
                 mrkdwn: true,
                 attachments: [{
                     text: "",
