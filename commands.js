@@ -65,7 +65,6 @@ module.exports = (shared, logger, Channel, slack, app) => {
             ":white_check_mark: Successfully extended this channel's " +
             `expiry date by ${numDays} day(s)`
         );
-
     });
 
     app.post("/command/set-expiry", async (req, res) => {

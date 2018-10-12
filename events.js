@@ -43,15 +43,26 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
             });
 
             const res = await slack.user.auth.test();
+            const role_user_id = res.user_id;
+
+            const helpText =
+`Here are your options. In this chat, you can type:
+- :information_source: | \`help\`: Print this help message
+- :scroll: | \`list [keywords ...]\`: List active private channels that match your query
+
+You also have the following slash commands available to you in any chat:
+- :telephone_receiver: | \`/request-channel [@user_to_invite]\`: Request a private channel
+- :stopwatch: | \`/extend-expiry [number of days]\`: Extend a private channel's expiry date
+- :date: | \`/set-expiry YYYY-MM-DD\`: Set a private channel's expiry date
+
+If you would like me to start managing one of your currently *unmanaged* private channels, simply invite <@${role_user_id}> to that channel.
+
+You can also click on the buttons listed below.
+
+_For more information about usage, please see <${usageDocsURL}>._`;
             return slack.bot.chat.postMessage({
                 channel: event.channel,
-                text: "Here are your options. Type:\n" +
-                "- :information_source: | `help`: Print this help message\n" +
-                "- :scroll: | `list [keywords ...]`: List active private channels that match your query\n\n" +
-                "If you would like me to start managing one of your currently *unmanaged* private channels, " +
-                `simply invite <@${res.user_id}> to that channel.\n\n` +
-                "You can also click on the buttons listed below.\n" +
-                `For more information about usage, please see ${usageDocsURL}.`,
+                text: helpText,
                 mrkdwn: true,
                 attachments: [{
                     text: "",
