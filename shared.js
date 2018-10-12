@@ -10,10 +10,12 @@
 
 const authChannel = process.env.AUTH_CHANNEL;
 
-module.exports = (logger, Channel, slack) => {
+module.exports = (Channel, slack) => {
     return {
         isUserAuthorized: async function(user) {
             let cursor = "";
+            // Slack's API has a max cap on the number of channels returned,
+            // so we have to loop until we find one (or don't)
             do {
                 const res = await slack.user.users.conversations({
                     cursor,
@@ -27,10 +29,12 @@ module.exports = (logger, Channel, slack) => {
 
                 cursor = res.response_metadata.next_cursor;
             } while (cursor);
+
             return false;
         },
 
         listChannels: async function(offset, searchTerms) {
+            // fuzzy search by channel name and organization
             const query = (!searchTerms) ? {} : {
                 $or: [
                     { name: { $regex: searchTerms, $options: "i" } },
@@ -38,21 +42,16 @@ module.exports = (logger, Channel, slack) => {
                 ]
             };
 
-            let paginatedData;
-            try {
-                paginatedData = await Channel.paginate(query, { offset, limit: 5 });
-            } catch (err) {
-                logger.error(err);
-                return {
-                    text: ":heavy_exclamation_mark: An error occurred while trying to get a list of channels."
-                };
-            }
+            const paginatedData = await Channel.paginate(query, {
+                offset,
+                limit: 5
+            });
 
             const channels = paginatedData.docs;
             if (0 == channels.length) {
                 return {
-                    text: "There are no active private channels that match your query, " +
-                    "type `help` if you would like to request one."
+                    text: "There are no active private channels that match " +
+                    "your query, type `help` if you would like to request one."
                 };
             }
 
@@ -96,7 +95,10 @@ module.exports = (logger, Channel, slack) => {
                 });
             });
 
-            let actions = [];
+            const actions = [];
+            
+            // if we are not on the first page, then there must be a previous
+            // page of results
             if (offset >= 5) {
                 actions.push({
                     name: "list_private_channels",
@@ -108,6 +110,8 @@ module.exports = (logger, Channel, slack) => {
                     })
                 });
             }
+
+            // if there are more pages left, add a next page button
             if (offset + 5 < paginatedData.total) {
                 actions.push({
                     name: "list_private_channels",
@@ -119,6 +123,8 @@ module.exports = (logger, Channel, slack) => {
                     })
                 });
             }
+
+            // only show the pagination details if there are multiple pages
             if (paginatedData.total > 5) {
                 attachments.push({
                     text: "See more channels...",
@@ -128,7 +134,8 @@ module.exports = (logger, Channel, slack) => {
             }
 
             return {
-                text: "Here is a `list` of active private channels that match your query:",
+                text: "Here is a `list` of active private channels that " +
+                "match your query.",
                 attachments
             };
         },
@@ -148,7 +155,8 @@ module.exports = (logger, Channel, slack) => {
                             name: "channel_name",
                             min_length: 1,
                             max_length: 21,
-                            hint: "May only contain lowercase letters, numbers, hyphens, and underscores.",
+                            hint: "May only contain lowercase letters, " +
+                            "numbers, hyphens, and underscores.",
                             value: name || ""
                         },
                         {

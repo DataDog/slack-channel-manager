@@ -51,11 +51,6 @@ const ChannelSchema = new mongoose.Schema({
     reminded: { type: Boolean, default: false }
 });
 ChannelSchema.plugin(mongoosePaginate);
-const Channel = mongoose.model("Channel", ChannelSchema);
-
-const shared = require("./shared.js")(logger, Channel, slack);
-require("./events.js")(shared, logger, Channel, slack, slackEvents);
-require("./actions.js")(shared, logger, Channel, slack, slackInteractions);
 
 const app = express();
 
@@ -86,17 +81,22 @@ app.get("/oauth", (req, res) => {
 app.use("/event", slackEvents.expressMiddleware());
 app.use("/action", slackInteractions.expressMiddleware());
 
+const Channel = mongoose.model("Channel", ChannelSchema);
+const shared = require("./shared.js")(logger, Channel, slack);
+require("./events.js")(shared, logger, Channel, slack, slackEvents);
+require("./actions.js")(shared, logger, Channel, slack, slackInteractions);
+
 // catch all error handler
 app.use((err, req, res, next) => {
     logger.error(err);
     next(err);
 });
 
+const ts_week = 60*60*24*7;
 app.listen(port, () => {
     logger.info("Slack Channel Manager server online", { port });
     const expiryJob = new CronJob({
-        // cronTime: '0 0 * * * *', // runs once every hour
-        cronTime: "0 0 0 * * *", // runs once every day
+        cronTime: "0 0 0 * * *", // runs once every day at 00:00
         onTick: async () => {
             logger.info("Channel expiry job firing now");
             let channels = [];
@@ -107,12 +107,11 @@ app.listen(port, () => {
             }
 
             const ts_curdate = Math.floor(Date.now() / 1000);
-            const secondsInWeek = 60*60*24*7;
             channels.forEach((channel) => {
                 if (ts_curdate >= channel.ts_expiry) {
                     logger.info(`#${channel.name} has expired, auto-archiving now.`, { channel: channel.id });
                     slack.user.groups.archive({ channel: channel.id }).catch(logger.error);
-                } else if (!channel.reminded && ts_curdate >= channel.ts_expiry - secondsInWeek) {
+                } else if (!channel.reminded && ts_curdate >= channel.ts_expiry - ts_week) {
                     logger.info(`#${channel.name} will expire within a week`, { channel: channel.id });
                     slack.user.chat.postMessage({
                         channel: channel.id,

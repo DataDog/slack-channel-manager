@@ -8,6 +8,9 @@
  * Copyright 2018 Datadog, Inc.
  */
 
+const ts_week = 60*60*24*7;
+const ts_day = 60*60*24;
+
 module.exports = (shared, logger, Channel, slack, slackInteractions) => {
     slackInteractions.action("menu_button", async (payload) => {
         logger.info("Button press", {
@@ -55,6 +58,8 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
                 }
             }
 
+            // find the attachement associated with that button and update it to
+            // reflect the change
             for (let i = 0; i < reply.attachments.length; ++i) {
                 if (reply.attachments[i].actions &&
                     channel == reply.attachments[i].actions[0].value) {
@@ -78,6 +83,7 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
                     return { text: "Fatal: unknown platform error" };
                 }
             }
+
             for (let i = 0; i < reply.attachments.length; ++i) {
                 if (reply.attachments[i].actions &&
                     channel == reply.attachments[i].actions[0].value) {
@@ -110,7 +116,7 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         if (invitee == me) {
             errors.push({
                 name: "invitee",
-                error: "You cannot request a new private channel with just yourself in it!"
+                error: "You can't request a private channel with just yourself in it!"
             });
         }
 
@@ -158,7 +164,8 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
                     return {
                         errors: [{
                             name: "channel_name",
-                            error: "You are not allowed to request private channels in this Slack workspace," +
+                            error: "You are not allowed to request private " +
+                            "channels in this Slack workspace," +
                             "please contact the administrators."
                         }]
                     };
@@ -171,10 +178,9 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         const channel = res.group.id;
         channel_name = res.group.name;
 
-        // Slack returns UNIX timestamp (seconds since epoch)
+        // Slack API returns UNIX timestamps (seconds since epoch)
         const ts_created = res.group.created;
-        const secondsInDay = 60*60*24;
-        const ts_expiry = ts_created + (secondsInDay*parseInt(expire_days));
+        const ts_expiry = ts_created + (ts_day * parseInt(expire_days));
 
         try {
             await Promise.all([
@@ -194,10 +200,13 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
             ]);
         } catch (err) {
             logger.error(err);
-            return;
+            return { errors: [{ error: "Fatal: unknown platform error" }] };
         }
 
-        respond({ text: `Successfully created private channel #${channel_name} for <@${invitee}> from ${organization}!` });
+        respond({
+            text: `Successfully created private channel #${channel_name} for ` +
+            `<@${invitee}> from ${organization}!`
+        });
     });
 
     slackInteractions.action("expire_warning_button", async (payload) => {
@@ -209,19 +218,32 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         });
 
         if ("extend" == payload.actions[0].name) {
-            const secondsInWeek = 60*60*24*7;
             try {
+                // increment the expiry timestamp of the channel by a week
                 await Channel.findByIdAndUpdate(payload.channel.id, {
                     reminded: false,
-                    $inc: { ts_expiry: secondsInWeek }
+                    $inc: { ts_expiry: ts_week }
                 }).exec();
             } catch (err) {
+                logger.error("MongoDB error: failed to save channel", {
+                    channel: payload.channel.id
+                });
                 logger.error(err);
+                return {
+                    text: "Failed to extend the channel lifetime, please " +
+                    "contact the administrators."
+                };
             }
 
-            return { text: ":white_check_mark: Successfully extended channel length by a week." };
+            return {
+                text: ":white_check_mark: Successfully extended channel " +
+                "lifetime by a week."
+            };
         } else if ("ignore" == payload.actions[0].name) {
-            return { text: "Ok, this channel will expire within the week. You can ignore this." };
+            return {
+                text: "Ok, this channel will expire within the week. " +
+                "You can ignore this."
+            };
         }
     });
 
@@ -234,9 +256,13 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         });
 
         if (!(await shared.isUserAuthorized(payload.user.id))) {
-            logger.info("Unauthorized user trying to use channel manager", { user: payload.user.id });
+            logger.info("Unauthorized user trying to use channel manager", {
+                user: payload.user.id
+            });
             return;
         }
-        shared.requestChannelDialog(payload.trigger_id, { user: payload.message.user });
+        shared.requestChannelDialog(payload.trigger_id, {
+            user: payload.message.user
+        });
     });
 };

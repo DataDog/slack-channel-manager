@@ -10,7 +10,7 @@
 
 const helpCommandRegex = /help|option|action|command|menu/i;
 const usageDocsURL = "https://github.com/DataDog/slack-channel-manager/wiki/Usage-Instructions";
-const secondsInDay = 60*60*24;
+const ts_day = 60*60*24;
 
 module.exports = (shared, logger, Channel, slack, slackEvents) => {
     slackEvents.on("message", async (event) => {
@@ -22,7 +22,8 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
             return;
         }
 
-        if (!(await shared.isUserAuthorized(event.user))) {
+        const authorized = await shared.isUserAuthorized(event.user);
+        if (!authorized) {
             logger.info("Unauthorized user trying to use channel manager", {
                 user: event.user,
                 message: event.text
@@ -118,7 +119,7 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
         const res = await slack.user.conversations.info({ channel: event.channel });
 
         try {
-            const ts_expiry = Math.floor(Date.now() / 1000) + (28*secondsInDay);
+            const ts_expiry = Math.floor(Date.now() / 1000) + (28 * ts_day);
             await Channel.findByIdAndUpdate(event.channel, {
                 name: res.channel.name,
                 topic: res.channel.topic.value,
@@ -128,8 +129,15 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
                 reminded: false
             }, { upsert: true, setDefaultsOnInsert: true }).exec();
         } catch (err) {
+            logger.error("MongoDB error: failed to save channel", {
+                channel: event.channel
+            });
             logger.error(err);
-            return;
+            return slack.user.chat.postMessage({
+                channel: event.channel,
+                text: "Something went wrong, I couldn't add this channel to my " +
+                "database. Please contact the administrators. ",
+            });
         }
 
         return slack.user.chat.postMessage({
@@ -145,11 +153,19 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
             return;
         }
 
+        // Get the user ID of the role account used to install the Slack
+        // app to the workspace
         let res = await slack.user.auth.test();
         const role_user_id = res.user_id;
 
+        // Get the user ID of the bot user created in the app's dashboard
         res = await slack.bot.auth.test();
-        if (event.user == res.user_id) {
+        const bot_user_id = res.user_id;
+
+        // if the user joining the channel is the same as the *bot* user, then
+        // the wrong user was invited to that channel (it should have been the
+        // role account instead)
+        if (bot_user_id == event.user) {
             return slack.bot.chat.postMessage({
                 channel: event.channel,
                 text: "It looks like you want this channel to be automatically managed. " +
@@ -160,14 +176,18 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
             });
         }
 
+        // only handle the event if the user joining the channel is the role account
         if (role_user_id != event.user) {
             return;
         }
 
-        res = await slack.user.conversations.info({ channel: event.channel });
+        logger.info("Channel manager was added to an unmanaged channel, adding it to DB", {
+            channel: event.channel
+        });
 
+        res = await slack.user.conversations.info({ channel: event.channel });
+        const ts_expiry = Math.floor(Date.now() / 1000) + (28 * ts_day);
         try {
-            const ts_expiry = Math.floor(Date.now() / 1000) + (28*secondsInDay);
             await Channel.findByIdAndUpdate(event.channel, {
                 name: res.channel.name,
                 topic: res.channel.topic.value,
@@ -177,8 +197,15 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
                 reminded: false
             }, { upsert: true, setDefaultsOnInsert: true }).exec();
         } catch (err) {
+            logger.error("MongoDB error: failed to save channel", {
+                channel: event.channel
+            });
             logger.error(err);
-            return;
+            return slack.user.chat.postMessage({
+                channel: event.channel,
+                text: "Something went wrong, I couldn't add this channel to my " +
+                "database. Please contact the administrators. ",
+            });
         }
 
         return slack.user.chat.postMessage({
@@ -189,11 +216,14 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
 
     slackEvents.on("member_left_channel", async (event) => {
         const res = await slack.user.auth.test();
-        if (event.user != res.user_id) {
+        const role_user_id = res.user_id;
+        if (role_user_id != event.user) {
             return;
         }
 
-        logger.info("Channel manager left or was kicked, removing from managed DB", { channel: event.channel });
+        logger.info("Channel manager left or was kicked, removing from managed DB", {
+            channel: event.channel
+        });
         return Channel.findByIdAndRemove(event.channel)
             .exec()
             .catch(logger.error);
