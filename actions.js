@@ -8,7 +8,6 @@
  * Copyright 2018 Datadog, Inc.
  */
 
-const ts_week = 60*60*24*7;
 const ts_day = 60*60*24;
 
 module.exports = (shared, logger, Channel, slack, slackInteractions) => {
@@ -204,47 +203,41 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         }
 
         respond({
-            text: `Successfully created private channel #${channel_name} for ` +
-            `<@${invitee}> from ${organization}!`
+            text: ":white_check_mark: Successfully created private channel " +
+            `#${channel_name} for <@${invitee}> from ${organization}!`
         });
     });
 
-    slackInteractions.action("expire_warning_button", async (payload) => {
+    slackInteractions.action("extend_button", async (payload) => {
         logger.info("Button press", {
             user_id: payload.user.id,
             type: "button",
-            callback_id: "expire_warning_button",
+            callback_id: "extend_button",
             action: payload.actions[0]
         });
 
-        if ("extend" == payload.actions[0].name) {
-            try {
-                // increment the expiry timestamp of the channel by a week
-                await Channel.findByIdAndUpdate(payload.channel.id, {
-                    reminded: false,
-                    $inc: { ts_expiry: ts_week }
-                }).exec();
-            } catch (err) {
-                logger.error("MongoDB error: failed to save channel", {
-                    channel: payload.channel.id
-                });
-                logger.error(err);
-                return {
-                    text: "Failed to extend the channel lifetime, please " +
-                    "contact the administrators."
-                };
-            }
+        if ("extend" != payload.actions[0].name) {
+            return;
+        }
 
+        try {
+            // increment the expiry timestamp of the channel by a week
+            await shared.extendChannelExpiry(payload.channel.id, 7);
+        } catch (err) {
+            logger.error("MongoDB error: failed to save channel", {
+                channel: payload.channel.id
+            });
+            logger.error(err);
             return {
-                text: ":white_check_mark: Successfully extended channel " +
-                "lifetime by a week."
-            };
-        } else if ("ignore" == payload.actions[0].name) {
-            return {
-                text: "Ok, this channel will expire within the week. " +
-                "You can ignore this."
+                text: "Failed to extend this channel's expiry date, please " +
+                "contact the administrators."
             };
         }
+
+        return {
+            text: ":white_check_mark: Successfully extended this channel's " +
+            "expiry date by a week."
+        };
     });
 
     slackInteractions.action("request_channel_action", async (payload) => {

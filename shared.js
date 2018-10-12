@@ -9,6 +9,7 @@
  */
 
 const authChannel = process.env.AUTH_CHANNEL;
+const ts_day = 60*60*24;
 
 module.exports = (Channel, slack) => {
     return {
@@ -138,6 +139,20 @@ module.exports = (Channel, slack) => {
                 "match your query.",
                 attachments
             };
+        },
+
+        extendChannelExpiry: async function(channel_id, num_days) {
+            return Channel.findByIdAndUpdate(channel_id, {
+                $inc: { ts_expiry: num_days * ts_day },
+                reminded: false,
+            }).exec();
+        },
+
+        setChannelExpiry: async function(channel_id, ts_expiry) {
+            return Channel.findByIdAndUpdate(channel_id, {
+                ts_expiry,
+                reminded: false,
+            }).exec();
         },
 
         requestChannelDialog: async function(trigger_id, data) {

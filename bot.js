@@ -80,11 +80,13 @@ app.get("/oauth", (req, res) => {
 
 app.use("/event", slackEvents.expressMiddleware());
 app.use("/action", slackInteractions.expressMiddleware());
+app.use("/command", express.urlencoded({ extended: false }));
 
 const Channel = mongoose.model("Channel", ChannelSchema);
-const shared = require("./shared.js")(logger, Channel, slack);
+const shared = require("./shared.js")(Channel, slack);
 require("./events.js")(shared, logger, Channel, slack, slackEvents);
 require("./actions.js")(shared, logger, Channel, slack, slackInteractions);
+require("./commands.js")(shared, logger, Channel, slack, app);
 
 // catch all error handler
 app.use((err, req, res, next) => {
@@ -115,27 +117,22 @@ app.listen(port, () => {
                     logger.info(`#${channel.name} will expire within a week`, { channel: channel.id });
                     slack.user.chat.postMessage({
                         channel: channel.id,
-                        text: "Looks like this channel will _expire within a week_, " +
-                        "would you like to *extend it for one more week*?",
+                        text: "Looks like this channel will expire _within a " +
+                        "week_. You can extend the expiry date by using the " +
+                        "`/extend-expiry [number of days]` command in this channel. ",
                         attachments: [{
-                            text: "",
+                            text: "Would you like to extend the expiry date " +
+                            "for *one more week*?",
                             fallback: "You are unable to choose an option.",
-                            callback_id: "expire_warning_button",
+                            callback_id: "extend_button",
                             color: "warning",
                             attachment_type: "default",
-                            actions: [
-                                {
-                                    name: "extend",
-                                    text: "Extend",
-                                    type: "button",
-                                    style: "primary"
-                                },
-                                {
-                                    name: "ignore",
-                                    text: "Ignore",
-                                    type: "button"
-                                }
-                            ]
+                            actions: [{
+                                name: "extend",
+                                text: "Extend",
+                                type: "button",
+                                style: "primary"
+                            }]
                         }]
                     }).catch((err) => {
                         if (err.data) {
