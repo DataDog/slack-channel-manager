@@ -89,6 +89,14 @@ Navigate to the _Bot Users_ section in the sidebar, then
 - Toggle **Always Show My Bot as Online** on
 - Submit the form with **Add Bot User**
 
+Navigate to the _Slash Commands_ section in the sidebar, then create the following commands:
+
+| Command | Request URL | Short Description | Usage Hint | Escape |
+| --- | --- | --- | --- | --- |
+| /request-channel | https://<ngrok-subdomain>.ngrok.io/command/request-channel | Requests a private channel | [@user-to-invite] | ✓ |
+| /extend-expiry | https://<ngrok-subdomain>.ngrok.io/command/extend-expiry | Extends a channel's expiry date | [number of days] | |
+| /set-expiry | https://<ngrok-subdomain>.ngrok.io/command/set-expiry | Sets a channel's expiry date | YYYY-MM-DD | |
+
 Navigate to the _Interactive Components_ section in the sidebar, then
 - Toggle **Interactivity** on
 - Set the **Request URL** to `https://<ngrok-subdomain>.ngrok.io/action`
