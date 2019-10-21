@@ -176,9 +176,12 @@ module.exports = (Channel, slack) => {
                         },
                         {
                             type: "select",
-                            label: "Invite user",
+                            label: "CSM or Account Owner",
                             name: "invitee",
                             data_source: "users",
+                            hint: "All channels should include a CSM or " +
+                            "account owner. Once a channel is created you " +
+                            "can add additional customers.",
                             value: user || ""
                         },
                         {
