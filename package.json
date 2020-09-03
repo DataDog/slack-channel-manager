@@ -11,6 +11,9 @@
     "start": "node bot.js",
     "lint": "./node_modules/.bin/eslint ."
   },
+  "engines": {
+    "node": "10.16"
+  },
   "dependencies": {
     "@slack/client": "^4.8.0",
     "@slack/events-api": "^2.1.1",
