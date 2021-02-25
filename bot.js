@@ -112,7 +112,7 @@ app.listen(port, () => {
             channels.forEach((channel) => {
                 if (ts_curdate >= channel.ts_expiry) {
                     logger.info(`#${channel.name} has expired, auto-archiving now.`, { channel: channel.id });
-                    slack.user.groups.archive({ channel: channel.id }).catch(logger.error);
+                    slack.user.conversations.archive({ channel: channel.id }).catch(logger.error);
                 } else if (!channel.reminded && ts_curdate >= channel.ts_expiry - ts_week) {
                     logger.info(`#${channel.name} will expire within a week`, { channel: channel.id });
                     slack.user.chat.postMessage({
