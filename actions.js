@@ -183,7 +183,7 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         const ts_expiry = ts_created + (ts_day * parseInt(expire_days));
         try {
             await Promise.all([
-                slack.user.conversations.invite({ channel, users: `${invitee}` }),
+                slack.user.conversations.invite({ channel, users: `${invitee},${me}` }),
                 slack.user.conversations.setTopic({ channel, topic }),
                 slack.user.conversations.setPurpose({ channel, purpose }),
                 Channel.insertMany([{
