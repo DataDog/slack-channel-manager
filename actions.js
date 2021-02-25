@@ -149,7 +149,8 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
 
         try {
             // TODO move to conversations API after workspace app migration
-            res = await slack.user.groups.create({ name: channel_name });
+            res = await slack.user.conversations.create({name: channel_name, is_private: true});
+            // res = await slack.user.groups.create({ name: channel_name });
         } catch (err) {
             if (err.data) {
                 if ("name_taken" == err.data.error) {
@@ -174,18 +175,17 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
             }
         }
 
-        const channel = res.group.id;
-        channel_name = res.group.name;
+        const channel = res.channel.id;
+        channel_name = res.channel.name;
 
         // Slack API returns UNIX timestamps (seconds since epoch)
-        const ts_created = res.group.created;
+        const ts_created = res.channel.created;
         const ts_expiry = ts_created + (ts_day * parseInt(expire_days));
-
         try {
             await Promise.all([
-                slack.user.conversations.invite({ channel, users: `${invitee},${me}` }),
-                slack.user.groups.setTopic({ channel, topic }),
-                slack.user.groups.setPurpose({ channel, purpose }),
+                slack.user.conversations.invite({ channel, users: `${invitee}` }),
+                slack.user.conversations.setTopic({ channel, topic }),
+                slack.user.conversations.setPurpose({ channel, purpose }),
                 Channel.insertMany([{
                     _id: channel,
                     name: channel_name,
