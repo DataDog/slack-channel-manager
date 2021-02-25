@@ -17,6 +17,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const mongoosePaginate = require("mongoose-paginate");
 const logger = require("heroku-logger");
+const tracer = require('dd-trace').init();
 const CronJob = require("cron").CronJob;
 const { WebClient } = require("@slack/client");
 const { createEventAdapter } = require("@slack/events-api");
