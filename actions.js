@@ -44,7 +44,7 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
 
         if ("join_channel" == payload.actions[0].name) {
             try {
-                await slack.user.groups.invite({ channel, user: payload.user.id });
+                await slack.user.conversations.invite({ channel, user: payload.user.id });
             } catch (err) {
                 if (err.data) {
                     if ("channel_not_found" == err.data.error || "is_archived" == err.data.error) {
