@@ -70,7 +70,7 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
             }
         } else if ("archive_channel" == payload.actions[0].name) {
             try {
-                await slack.user.groups.archive({ channel });
+                await slack.user.conversations.archive({ channel });
             } catch (err) {
                 if (err.data) {
                     if ("channel_not_found" == err.data.error || "already_archived" == err.data.error) {
