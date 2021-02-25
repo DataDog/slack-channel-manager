@@ -11,11 +11,15 @@
     "start": "node bot.js",
     "lint": "./node_modules/.bin/eslint ."
   },
+  "engines": {
+    "node": "10.16"
+  },
   "dependencies": {
     "@slack/client": "^4.8.0",
     "@slack/events-api": "^2.1.1",
     "@slack/interactive-messages": "^1.0.2",
     "cron": "^1.4.1",
+    "dd-trace": "^0.31.0",
     "dotenv": "^6.1.0",
     "express": "^4.16.3",
     "heroku-logger": "^0.3.1",
