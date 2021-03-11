@@ -185,16 +185,19 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
             await Promise.all([
                 slack.user.conversations.invite({ channel, users: `${invitee},${me}` }),
                 slack.user.conversations.setTopic({ channel, topic }),
-                slack.user.conversations.setPurpose({ channel, purpose }),
+                slack.user.conversations.setPurpose({
+                    purpose: purpose || "",
+                    channel
+                }),
                 Channel.insertMany([{
                     _id: channel,
                     name: channel_name,
                     user: invitee,
                     organization: organization || "",
+                    purpose: purpose || "",
                     ts_created,
                     ts_expiry,
-                    topic,
-                    purpose
+                    topic
                 }])
             ]);
         } catch (err) {
