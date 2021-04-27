@@ -148,6 +148,33 @@ module.exports = (Channel, slack) => {
             }).exec();
         },
 
+        isManagedChannel: async function(channel_id) {
+            return Channel.findById(channel_id).exec();
+        },
+
+        removeUserFromChannel: async function(channel, user) {
+            try {
+                const res = await slack.user.conversations.kick({
+                    channel,
+                    user
+                });
+            } catch (err) {
+                if (err.data) {
+                    if ("user_not_found" == err.data.error || "not_in_channel" == err.data.error) {
+                        return { error: "Oops, it looks like this user is not a member of this channel." };
+                    } else if ("cant_kick_self" == err.data.error) {
+                        return { error: "You can't remove the channel manager from a managed channel." };
+                    } else {
+                        return { error: `Fatal: unknown platform error - ${err.data.error}` };
+                    }
+                } else {
+                    logger.error(err);
+                    return { error: "Fatal: unknown platform error" };
+                }
+            }
+            return {success: "Successfully removed user"}
+        },
+
         setChannelExpiry: async function(channel_id, ts_expiry) {
             return Channel.findByIdAndUpdate(channel_id, {
                 ts_expiry,
