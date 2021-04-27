@@ -67,6 +67,38 @@ module.exports = (shared, logger, Channel, slack, app) => {
         );
     });
 
+    app.post("/command/remove-user", async (req, res) => {
+        if (!req.body.text) {
+            return res.send({
+                text: ":no_entry_sign: You didn't specify a user to remove"
+            });
+        }
+        const user_to_remove = req.body.text
+        const regex = /<@([^|]*)\|/
+        const user_regex_result = user_to_remove.match(regex)
+        if (!user_regex_result || user_regex_result.length !== 2 || !user_regex_result[1]) {
+            return res.send({
+                text: ":no_entry_sign: Invalid user specified, please use @handle"
+            });
+        }
+        const user_id = user_regex_result[1]
+        const channel = await shared.isManagedChannel(req.body.channel_id)
+        if (!channel) {
+            return res.send(
+                "That command won't work here because this channel isn't " +
+                "managed by me. Type `help` in my chat for more information."
+            );
+        }
+        const result = await shared.removeUserFromChannel(req.body.channel_id, user_id);
+        if ('error' in result) {
+            return res.send(
+                    `:no_entry_sign: ${result.error}`
+                );
+        } else {
+            return res.send(`:white_check_mark: ${result.success}`)
+        }
+    });
+
     app.post("/command/set-expiry", async (req, res) => {
         // Date.parse returns milliseconds from epoch
         const expiry_date = Date.parse(req.body.text);
