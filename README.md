@@ -96,6 +96,7 @@ Navigate to the _Slash Commands_ section in the sidebar, then create the followi
 | /request-channel | https://<ngrok-subdomain>.ngrok.io/command/request-channel | Requests a private channel | [@user-to-invite] | ✓ |
 | /extend-expiry | https://<ngrok-subdomain>.ngrok.io/command/extend-expiry | Extends a channel's expiry date | [number of days] | |
 | /set-expiry | https://<ngrok-subdomain>.ngrok.io/command/set-expiry | Sets a channel's expiry date | YYYY-MM-DD | |
+| /remove-user | https://<ngrok-subdomain>.ngrok.io/command/remove-user | Remove a user from a private channel | [@user-to-remove] | ✓ |
 
 Navigate to the _Interactive Components_ section in the sidebar, then
 - Toggle **Interactivity** on

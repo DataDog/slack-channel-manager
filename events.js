@@ -54,6 +54,7 @@ You also have the following slash commands available to you in any chat:
 - :telephone_receiver: | \`/request-channel [@user_to_invite]\`: Request a private channel
 - :stopwatch: | \`/extend-expiry [number of days]\`: Extend a private channel's expiry date
 - :date: | \`/set-expiry YYYY-MM-DD\`: Set a private channel's expiry date
+- :no_entry_sign: | \`/remove-user [@user_to_remove]\`: Remove a user from a private channel
 
 If you would like me to start managing one of your currently *unmanaged* private channels, simply invite <@${role_user_id}> to that channel.
 
