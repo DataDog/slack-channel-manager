@@ -49,6 +49,7 @@ module.exports = (shared, logger, Channel, slack, slackEvents) => {
 `Here are your options. In this chat, you can type:
 - :information_source: | \`help\`: Print this help message
 - :scroll: | \`list [keywords ...]\`: List active private channels that match your query
+- :file_folder: | \`list_archived [search term...]\`: List archived private channels that contain the search term
 
 You also have the following slash commands available to you in any chat:
 - :telephone_receiver: | \`/request-channel [@user_to_invite]\`: Request a private channel
@@ -85,10 +86,28 @@ _For more information about usage, please see <${usageDocsURL}>._`;
                                 offset: 0,
                                 searchTerms: ""
                             })
+                        },
+                        {
+                            name: "list_archived_private_channels",
+                            text: "List archived private channels",
+                            type: "button",
+                            value: JSON.stringify({
+                                offset: 0,
+                                searchTerms: ""
+                            })
                         }
                     ]
                 }]
             }).catch(logger.error);
+        } else if (message.startsWith("list_archived")) {
+            logger.info("Recognized command", {
+                user: event.user,
+                command: "list_archived"
+            });
+            const searchTerms = message.replace("list_archived", "").trim();
+            const reply = await shared.listArchivedChannels(searchTerms);
+            reply.channel = event.channel;
+            return slack.bot.chat.postMessage(reply);
         } else if (message.startsWith("list")) {
             logger.info("Recognized command", {
                 user: event.user,

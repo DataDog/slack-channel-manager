@@ -141,6 +141,74 @@ module.exports = (Channel, slack) => {
             };
         },
 
+        listArchivedChannels: async function(searchTerms) {
+            const attachments = []
+            try {
+                let more_results = true
+                let cursor = ''
+                while (more_results) {
+                    let res = await slack.user.conversations.list({
+                        types: 'private_channel',
+                        cursor
+                    })
+                    for (const channel of res.channels) {
+                        if (Object.hasOwnProperty.call(channel, "name") && channel.is_archived && (!searchTerms || channel.name.includes(searchTerms))) {
+                            let text = ""
+                            if (channel.topic.value) {
+                                text += `_${channel.topic.value}_`;
+                            }
+                            if (channel.purpose.value) {
+                                text += "\n" + channel.purpose.value;
+                            }
+                            attachments.push({
+                                title: `#${channel.name}`,
+                                text,
+                                callback_id: "unarchive_channel_button",
+                                actions: [
+                                    {
+                                        name: "restore_channel",
+                                        text: "Restore",
+                                        type: "button",
+                                        value: channel.id,
+                                        confirm: {
+                                            title: `Archive #${channel.name}`,
+                                            text: `Are you sure you want to restore ${channel.name}?`,
+                                            ok_text: "Yes",
+                                            dismiss_text: "No"
+                                        }
+                                    }
+                                ],
+                                mrkdwn: true
+                            });
+                        }
+                    }
+                    cursor = res.response_metadata.next_cursor
+                    if (res.response_metadata.next_cursor === "") {
+                        more_results = false
+                    }
+                }
+            } catch (err) {
+                if (err.data) {
+                    return { error: `Fatal: unknown platform error - ${err.data.error}` };
+                } else {
+                    logger.error(err);
+                    return { error: "Fatal: unknown platform error" };
+                }
+            }
+
+            if (0 == attachments.length) {
+                return {
+                    text: "There are no active private channels that match " +
+                    "your query, type `help` if you would like to request one."
+                };
+            }
+            return {
+                text: "Here is the `list_archived` private channels that " +
+                "match your query.",
+                attachments
+            };
+        },
+
         extendChannelExpiry: async function(channel_id, num_days) {
             return Channel.findByIdAndUpdate(channel_id, {
                 $inc: { ts_expiry: num_days * ts_day },

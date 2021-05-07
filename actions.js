@@ -28,6 +28,45 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         } else if ("list_private_channels" == payload.actions[0].name) {
             const { offset, searchTerms } = JSON.parse(payload.actions[0].value);
             return shared.listChannels(offset || 0, searchTerms || "");
+        } else if ("list_archived_private_channels" == payload.actions[0].name) {
+            const { searchTerms } = JSON.parse(payload.actions[0].value);
+            return shared.listArchivedChannels(searchTerms || "");
+        }
+    });
+
+    slackInteractions.action("unarchive_channel_button", async (payload) => {
+        logger.info("Button press", {
+            user_id: payload.user.id,
+            type: "button",
+            callback_id: "unarchive_channel_button",
+            action: payload.actions[0]
+        });
+
+        const channel = payload.actions[0].value;
+        const reply = payload.original_message;
+
+        if ("restore_channel" == payload.actions[0].name) {
+            try {
+                await slack.user.conversations.unarchive({ channel });
+            } catch (err) {
+                if (err.data) {
+                    logger.error(err.data);
+                    return { text: "Fatal: unknown platform error " + err.data };
+                } else {
+                    logger.error(err);
+                    return { text: "Fatal: unknown platform error" };
+                }
+            }
+
+            for (let i = 0; i < reply.attachments.length; ++i) {
+                if (reply.attachments[i].actions &&
+                    channel == reply.attachments[i].actions[0].value) {
+                    delete reply.attachments[i].actions;
+                    reply.attachments[i].color = "good";
+                    reply.attachments[i].text += "\n:recycle: This channel is now restored.";
+                    return reply;
+                }
+            }
         }
     });
 
