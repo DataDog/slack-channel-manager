@@ -28,9 +28,6 @@ module.exports = (shared, logger, Channel, slack, slackInteractions) => {
         } else if ("list_private_channels" == payload.actions[0].name) {
             const { offset, searchTerms } = JSON.parse(payload.actions[0].value);
             return shared.listChannels(offset || 0, searchTerms || "");
-        } else if ("list_archived_private_channels" == payload.actions[0].name) {
-            const { searchTerms } = JSON.parse(payload.actions[0].value);
-            return shared.listArchivedChannels(searchTerms || "");
         }
     });
 

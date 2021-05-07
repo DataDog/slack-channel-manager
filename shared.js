@@ -202,6 +202,13 @@ module.exports = (Channel, slack) => {
                     "your query, type `help` if you would like to request one."
                 };
             }
+            if (attachments.length > 50) {
+                return {
+                    text: "Here is the first 50 `list_archived` private channels that " +
+                    "match your query. I suggest being more specific with the query.",
+                    attachments: attachments.slice(0, 50)
+                };
+            }
             return {
                 text: "Here is the `list_archived` private channels that " +
                 "match your query.",
