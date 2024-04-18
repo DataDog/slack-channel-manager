@@ -38,8 +38,7 @@ const slackInteractions = createMessageAdapter(clientSigningSecret, {
     lateResponseFallbackEnabled: true
 });
 
-// TODO remove this once mongoose fixes this deprecation
-mongoose.set("useFindAndModify", false);
+
 mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true });
 const ChannelSchema = new mongoose.Schema({
     _id: { type: String, required: true },
