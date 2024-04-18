@@ -68,7 +68,7 @@ ngrok http 8080
 Start up a MongoDB server
 
 ```sh
-mongod --dbpath=test-data/
+mongod --dbpath=mongodb-data/
 ```
 
 Run the bot
