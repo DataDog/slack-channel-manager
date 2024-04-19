@@ -46,7 +46,7 @@ npm install
 ### Running locally
 
 Run the localhost tunnelling service (instructions here are for ngrok on development port 8080).
-Note down the <ngrok-subdomain> that appears in the output.
+Note down the <ngrok-subdomain> that appears in the output. Also, note that this subdomain changes everytime you restart the service. So, be sure to update the Slack Command Request URLs in the Slack API Dashboard.
 
 ```sh
 ngrok http 8080
