@@ -46,7 +46,7 @@ npm install
 ### Running locally
 
 Run the localhost tunnelling service (instructions here are for ngrok on development port 8080).
-Note down the <ngrok-subdomain> that appears in the output.
+Note down the `<ngrok-subdomain>` that appears in the output. Also, note that this subdomain changes everytime you restart the service. So, be sure to update the Slack Command Request URLs in the Slack API Dashboard.
 
 ```sh
 ngrok http 8080
@@ -55,20 +55,19 @@ ngrok http 8080
 
 # Session Status                online
 # Account                       <your name> (Plan: Free)
-# Version                       2.2.8
+# Version                       3.8.0
 # Region                        United States (us)
 # Web Interface                 http://127.0.0.1:4040
-# Forwarding                    http://<ngrok-subdomain>.ngrok.io -> localhost:8080
-# Forwarding                    https://<ngrok-subdomain>.ngrok.io -> localhost:8080
+# Forwarding                    https://<ngrok-subdomain>.ngrok-free.app -> localhost:8080
 #
 # Connections                   ttl     opn     rt1     rt5     p50     p90
 #                               0       0       0.00    0.00    0.00    0.00
 ```
 
-Start up a MongoDB server
+Start up a MongoDB server. Note: create `mongodb-data` directory at root.
 
 ```sh
-mongod --dbpath=test-data/
+mongod --dbpath=mongodb-data/
 ```
 
 Run the bot
@@ -93,14 +92,14 @@ Navigate to the _Slash Commands_ section in the sidebar, then create the followi
 
 | Command | Request URL | Short Description | Usage Hint | Escape |
 | --- | --- | --- | --- | --- |
-| /request-channel | https://<ngrok-subdomain>.ngrok.io/command/request-channel | Requests a private channel | [@user-to-invite] | ✓ |
-| /extend-expiry | https://<ngrok-subdomain>.ngrok.io/command/extend-expiry | Extends a channel's expiry date | [number of days] | |
-| /set-expiry | https://<ngrok-subdomain>.ngrok.io/command/set-expiry | Sets a channel's expiry date | YYYY-MM-DD | |
-| /remove-user | https://<ngrok-subdomain>.ngrok.io/command/remove-user | Remove a user from a private channel | [@user-to-remove] | ✓ |
+| /request-channel | https://\<ngrok-subdomain>.ngrok-free.app/command/request-channel | Requests a private channel | [@user-to-invite] | ✓ |
+| /extend-expiry | https://\<ngrok-subdomain>.ngrok-free.app/command/extend-expiry | Extends a channel's expiry date | [number of days] | |
+| /set-expiry | https://\<ngrok-subdomain>.ngrok-free.app/command/set-expiry | Sets a channel's expiry date | YYYY-MM-DD | |
+| /remove-user | https://\<ngrok-subdomain>.ngrok-free.app/command/remove-user | Remove a user from a private channel | [@user-to-remove] | ✓ |
 
 Navigate to the _Interactive Components_ section in the sidebar, then
 - Toggle **Interactivity** on
-- Set the **Request URL** to `https://<ngrok-subdomain>.ngrok.io/action`
+- Set the **Request URL** to `https://<ngrok-subdomain>.ngrok-free.app/action`
 - Add an action with the following fields:
 
 | Name | Description | Callback ID |
@@ -109,7 +108,7 @@ Navigate to the _Interactive Components_ section in the sidebar, then
 
 Navigate to the _Event Subscriptions_ section in the sidebar, then
 - Toggle **Enable Events** on
-- Set the **Request URL** to `https://<ngrok-subdomain>.ngrok.io/event`
+- Set the **Request URL** to `https://<ngrok-subdomain>.ngrok-free.app/event`
     - Note that the app must be locally running before setting the Request URL. If everything is correctly configured, a "Verified" icon should appear.
 - Under the _Subscribe to Workspace Events_ section, add the following events:
 
@@ -130,7 +129,7 @@ message.im
 ```
 
 Navigate to the _OAuth and Permissions_ section in the sidebar, then
-- Add `https://<ngrok-subdomain>.ngrok.io/oauth` to the _Redirect URLs_ section
+- Add `https://<ngrok-subdomain>.ngrok-free.app/oauth` to the _Redirect URLs_ section
 - Click on **Select Permission Scopes** and add the following scopes:
 
 ```
