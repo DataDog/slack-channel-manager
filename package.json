@@ -20,7 +20,7 @@
     "@slack/interactive-messages": "^1.0.2",
     "cron": "^1.4.1",
     "dd-trace": "^5.10.0",
-    "dotenv": "^6.1.0",
+    "dotenv": "^17.2.4",
     "express": "^4.16.3",
     "heroku-logger": "^0.3.3",
     "mongoose": "^6.13.8",
