@@ -31,6 +31,16 @@
     "eslint": "^5.6.1"
   },
   "overrides": {
-    "flat": "^5.0.1"
+    "flat": "^5.0.1",
+    "request": {
+      "qs": "^6.15.3"
+    },
+    "express": {
+      "qs": "^6.15.3",
+      "body-parser": {
+        "qs": "^6.15.3"
+      },
+      "serve-static": "^1.16.3"
+    }
   }
 }
