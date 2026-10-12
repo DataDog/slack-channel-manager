@@ -41,6 +41,13 @@
         "qs": "^6.16.0"
       },
       "serve-static": "^1.16.3"
+    },
+    "eslint": {
+      "js-yaml": {
+        "argparse": {
+          "sprintf-js": "^1.1.3"
+        }
+      }
     }
   }
 }
